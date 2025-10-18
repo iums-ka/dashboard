@@ -213,7 +213,10 @@ export default function Mensa() {
               p: 1.5, 
               backgroundColor: '#f8fafc',
               borderBottom: '1px solid #e2e8f0',
-              flexShrink: 0
+              flexShrink: 0,
+              height: '56px',
+              display: 'flex',
+              alignItems: 'center'
             }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#0459C9', fontSize: '0.9rem' }}>
                 {getDayLabel(todayData) || 'Heute'}
@@ -398,11 +401,14 @@ export default function Mensa() {
             {/* Tomorrow Header */}
             <Box sx={{ 
               p: 1.5, 
-              backgroundColor: '#f1f5f9',
+              backgroundColor: '#f8fafc',
               borderBottom: '1px solid #e2e8f0',
-              flexShrink: 0
+              flexShrink: 0,
+              height: '56px',
+              display: 'flex',
+              alignItems: 'center'
             }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#9BB8D9', fontSize: '0.85rem' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#0459C9', fontSize: '0.9rem' }}>
                 {getDayLabel(tomorrowData) || 'Morgen'}
               </Typography>
             </Box>
