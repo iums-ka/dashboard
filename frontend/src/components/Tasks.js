@@ -16,6 +16,7 @@ import {
   ListItemText,
   ListItemAvatar,
   Divider,
+  LinearProgress,
   useTheme
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -36,6 +37,16 @@ export default function Tasks() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  
+  // Rotation state variables for deck cycling
+  const [currentDeckIndex, setCurrentDeckIndex] = useState(0);
+  const [displayDuration, setDisplayDuration] = useState(40000); // Default 40 seconds
+  const [rotationTimer, setRotationTimer] = useState(null);
+  
+  // Animation state variables
+  const [progress, setProgress] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [progressInterval, setProgressInterval] = useState(null);
 
   // Fetch tasks data from Laravel backend
   const fetchTasksData = useCallback(async (showLoadingSpinner = true) => {
@@ -65,6 +76,10 @@ export default function Tasks() {
       setTasksData(result.data);
       setLastUpdated(new Date());
       setError(null);
+      
+      // Reset rotation state when new data is loaded
+      setCurrentDeckIndex(0);
+      setProgress(0);
     } catch (err) {
       console.error('Error fetching tasks data:', err);
       setError(err.message || 'Fehler beim Laden der Aufgaben');
@@ -89,6 +104,66 @@ export default function Tasks() {
 
     return () => clearInterval(intervalId);
   }, [fetchTasksData]);
+
+  // Rotation timer setup with progress animation
+  useEffect(() => {
+    // Only start rotation if we have data and multiple boards
+    if (!tasksData?.boards || tasksData.boards.length <= 1) {
+      setProgress(0);
+      return;
+    }
+
+    // Clear any existing timers
+    if (rotationTimer) {
+      clearTimeout(rotationTimer);
+    }
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+
+    // Get current board and calculate display duration
+    const currentBoard = tasksData.boards[currentDeckIndex];
+    const urgentCount = currentBoard ? getUrgentTaskCount(currentBoard) : 0;
+    const duration = calculateDisplayDuration(urgentCount);
+    
+    // Reset progress and start animation
+    setProgress(0);
+    setIsTransitioning(false);
+    
+    // Progress animation - update every 100ms
+    const progressStep = 100 / (duration / 100); // Progress increment per 100ms
+    const newProgressInterval = setInterval(() => {
+      setProgress((prevProgress) => {
+        const newProgress = prevProgress + progressStep;
+        return newProgress >= 100 ? 100 : newProgress;
+      });
+    }, 100);
+    
+    // Set new timer for deck rotation
+    const newTimer = setTimeout(() => {
+      setIsTransitioning(true);
+      // Small delay for transition effect
+      setTimeout(() => {
+        setCurrentDeckIndex((prevIndex) => 
+          prevIndex >= tasksData.boards.length - 1 ? 0 : prevIndex + 1
+        );
+      }, 150); // 150ms transition delay
+    }, duration);
+    
+    setRotationTimer(newTimer);
+    setProgressInterval(newProgressInterval);
+    setDisplayDuration(duration);
+
+    // Cleanup timers on unmount or dependency change
+    return () => {
+      if (newTimer) {
+        clearTimeout(newTimer);
+      }
+      if (newProgressInterval) {
+        clearInterval(newProgressInterval);
+      }
+    };
+  }, [tasksData, currentDeckIndex]); // Removed rotationTimer and progressInterval from deps to avoid infinite loop
 
   // Get priority color based on labels or due date
   const getPriorityInfo = (card) => {
@@ -157,6 +232,52 @@ export default function Tasks() {
     return { text: dateStr, color: 'default' };
   };
 
+  // check if a task is urgent/overdue
+  const isTaskUrgent = (card) => {
+    if (!card.duedate) return false;
+    
+    const due = new Date(card.duedate);
+    const now = new Date();
+    const diffDays = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+    
+    // Overdue tasks (up to 1 month) or due within 7 days
+    if (diffDays < 0) {
+      // Only consider overdue tasks up to 1 month old
+      return Math.abs(diffDays) <= 30;
+    }
+
+    // Tasks due within 7 days are also considered urgent
+    return diffDays <= 7;
+  };
+
+  // Count urgent tasks per deck
+  const getUrgentTaskCount = (board) => {
+    if (!board?.stacks) return 0;
+    
+    let urgentCount = 0;
+    board.stacks.forEach(stack => {
+      stack.cards?.forEach(card => {
+        if (!card.archived && !card.done && isTaskUrgent(card)) {
+          urgentCount++;
+        }
+      });
+    });
+    
+    return urgentCount;
+  };
+
+  // Helper function to calculate display duration based on urgent task count
+  const calculateDisplayDuration = (urgentTaskCount) => {
+    const baseTime = 40000; // 40 seconds
+
+    if (urgentTaskCount >= 5) return baseTime; // 100% = 40 seconds
+    if (urgentTaskCount === 4) return baseTime * 0.9; // 90% = 36 seconds
+    if (urgentTaskCount === 3) return baseTime * 0.8; // 80% = 32 seconds
+    if (urgentTaskCount === 2) return baseTime * 0.7; // 70% = 28 seconds
+    if (urgentTaskCount === 1) return baseTime * 0.6; // 60% = 24 seconds
+    return baseTime * 0.5; // 50% = 20 seconds (no urgent tasks)
+  };
+
   // Get all tasks in a flat array for display
   const getAllTasks = () => {
     if (!tasksData?.boards) return [];
@@ -200,6 +321,100 @@ export default function Tasks() {
       const bCreated = b.createdAt ? new Date(b.createdAt) : new Date(0);
       return bCreated - aCreated;
     });
+  };
+
+  // Get tasks from the current deck only (for rotation display)
+  const getCurrentDeckTasks = () => {
+    if (!tasksData?.boards || tasksData.boards.length === 0) return [];
+    
+    // Get the current board based on currentDeckIndex
+    const currentBoard = tasksData.boards[currentDeckIndex];
+    if (!currentBoard) return [];
+    
+    const tasks = [];
+    currentBoard.stacks?.forEach(stack => {
+      stack.cards?.forEach(card => {
+        if (!card.archived && !card.done) { // Only show active tasks
+          tasks.push({
+            ...card,
+            boardTitle: currentBoard.title || `Board ${currentBoard.id}`,
+            stackTitle: stack.title,
+            boardId: currentBoard.id,
+            stackId: stack.id
+          });
+        }
+      });
+    });
+    
+    // Sort by new priority system:
+    // 1. Overdue tasks (up to 30 days)
+    // 2. Due tasks (with due date, sorted by remaining time)
+    // 3. Tasks assigned to people (more people first)
+    // 4. Tasks with no due date and no assignment
+    const sortedTasks = tasks.sort((a, b) => {
+      const aDue = a.duedate ? new Date(a.duedate) : null;
+      const bDue = b.duedate ? new Date(b.duedate) : null;
+      const now = new Date();
+      
+      // Calculate days difference
+      const aDiffDays = aDue ? Math.ceil((aDue - now) / (1000 * 60 * 60 * 24)) : null;
+      const bDiffDays = bDue ? Math.ceil((bDue - now) / (1000 * 60 * 60 * 24)) : null;
+      
+      // Check if tasks are overdue (up to 30 days)
+      const aIsOverdue = aDiffDays !== null && aDiffDays < 0 && Math.abs(aDiffDays) <= 30;
+      const bIsOverdue = bDiffDays !== null && bDiffDays < 0 && Math.abs(bDiffDays) <= 30;
+      
+      // Check if tasks have due dates (but not overdue)
+      const aHasDueDate = aDue !== null && !aIsOverdue;
+      const bHasDueDate = bDue !== null && !bIsOverdue;
+      
+      // Check assignment counts
+      const aAssignedCount = a.assignedUsers?.length || 0;
+      const bAssignedCount = b.assignedUsers?.length || 0;
+      const aIsAssigned = aAssignedCount > 0;
+      const bIsAssigned = bAssignedCount > 0;
+      
+      // 1. OVERDUE TASKS FIRST (up to 30 days)
+      if (aIsOverdue && !bIsOverdue) return -1;
+      if (bIsOverdue && !aIsOverdue) return 1;
+      if (aIsOverdue && bIsOverdue) {
+        // Both overdue - sort by how overdue they are (most overdue first)
+        return aDue - bDue;
+      }
+      
+      // 2. DUE TASKS (with due date, sorted by remaining time)
+      if (aHasDueDate && !bHasDueDate) return -1;
+      if (bHasDueDate && !aHasDueDate) return 1;
+      if (aHasDueDate && bHasDueDate) {
+        // Both have due dates - sort by earliest due date first
+        return aDue - bDue;
+      }
+      
+      // 3. ASSIGNED TASKS (more people first)
+      if (aIsAssigned && !bIsAssigned) return -1;
+      if (bIsAssigned && !aIsAssigned) return 1;
+      if (aIsAssigned && bIsAssigned) {
+        // Both assigned - sort by number of assigned people (more people first)
+        if (aAssignedCount !== bAssignedCount) {
+          return bAssignedCount - aAssignedCount;
+        }
+      }
+      
+      // 4. TASKS WITH NO DUE DATE AND NO ASSIGNMENT
+      // Within this category, sort by creation date (newest first)
+      const aCreated = a.createdAt ? new Date(a.createdAt) : new Date(0);
+      const bCreated = b.createdAt ? new Date(b.createdAt) : new Date(0);
+      return bCreated - aCreated;
+    });
+    
+    // Return only the top 5 most urgent tasks
+    return sortedTasks.slice(0, 5);
+  };
+
+  // Get current board info for display
+  const getCurrentBoard = () => {
+    if (!tasksData?.boards || tasksData.boards.length === 0) return null;
+    return tasksData.boards[currentDeckIndex];
   };
 
   if (loading && !tasksData) {
@@ -261,9 +476,9 @@ export default function Tasks() {
     );
   }
 
-  const tasks = getAllTasks();
-  const activeTasks = tasks.filter(task => !task.done && !task.archived);
-  const completedTasks = tasks.filter(task => task.done);
+  // Get current deck tasks (max 5, most urgent first)
+  const tasks = getCurrentDeckTasks();
+  const currentBoard = getCurrentBoard();
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -274,7 +489,8 @@ export default function Tasks() {
         alignItems: 'center', 
         mb: 2,
         pb: 1.5,
-        borderBottom: '2px solid #e2e8f0'
+        borderBottom: '2px solid #e2e8f0',
+        position: 'relative'
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <TaskIcon sx={{ color: '#0459C9', fontSize: '1.5rem' }} />
@@ -282,7 +498,7 @@ export default function Tasks() {
             Aufgaben
           </Typography>
           <Chip 
-            label={`${activeTasks.length} aktiv`} 
+            label={`${tasks.length} Aufgaben`} 
             size="small" 
             sx={{ 
               bgcolor: '#9BB8D9', 
@@ -311,11 +527,72 @@ export default function Tasks() {
             <RefreshIcon fontSize="small" />
           </IconButton>
         </Box>
+        
+        {/* Overlaid Progress Bar */}
+        {currentBoard && tasksData?.boards && tasksData.boards.length > 1 && (
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              height: '2px',
+              backgroundColor: '#0459C9',
+              width: `${progress}%`,
+              transition: 'width 0.1s ease-out',
+              boxShadow: progress > 0 ? '0 0 8px rgba(4, 89, 201, 0.4)' : 'none',
+              zIndex: 1
+            }}
+          />
+        )}
       </Box>
 
+      {/* Current Deck Display */}
+      {currentBoard && tasksData?.boards && tasksData.boards.length > 1 && (
+        <Box sx={{ 
+          mb: 2,
+          pb: 1,
+          borderBottom: '1px solid #e2e8f0'
+        }}>
+          <Typography 
+            variant="subtitle1" 
+            sx={{ 
+              color: '#4a5568',
+              fontWeight: 500,
+              fontSize: '0.95rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              opacity: isTransitioning ? 0.7 : 1,
+              transition: 'opacity 0.15s ease-in-out'
+            }}
+          >
+            <FolderIcon sx={{ fontSize: '1.1rem', color: '#0459C9' }} />
+            {currentBoard.title || `Deck ${currentBoard.id}`}
+            <Chip 
+              label={`${currentDeckIndex + 1}/${tasksData.boards.length}`}
+              size="small"
+              sx={{ 
+                fontSize: '0.7rem',
+                height: '20px',
+                bgcolor: '#0459C9',
+                color: 'white',
+                '& .MuiChip-label': { px: 1 }
+              }}
+            />
+          </Typography>
+        </Box>
+      )}
+
       {/* Tasks List */}
-      <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
-        {activeTasks.length === 0 ? (
+      <Box sx={{ 
+        flexGrow: 1, 
+        overflow: 'auto',
+        opacity: isTransitioning ? 0.3 : 1,
+        transition: 'opacity 0.15s ease-in-out',
+        transform: isTransitioning ? 'translateY(5px)' : 'translateY(0px)',
+        transitionProperty: 'opacity, transform'
+      }}>
+        {tasks.length === 0 ? (
           <Box sx={{ 
             display: 'flex', 
             flexDirection: 'column',
@@ -332,7 +609,7 @@ export default function Tasks() {
           </Box>
         ) : (
           <List sx={{ p: 0 }}>
-            {activeTasks.slice(0, 10).map((task, index) => {
+            {tasks.map((task, index) => {
               const priorityInfo = getPriorityInfo(task);
               const dueDateInfo = formatDueDate(task.duedate);
               
@@ -407,11 +684,29 @@ export default function Tasks() {
                           />
                           {task.assignedUsers?.length > 0 && (
                             <Chip
-                              label={`${task.assignedUsers.length} Person(en)`}
+                              label={task.assignedUsers.map(userAssignment => {
+                                const user = userAssignment.participant || userAssignment;
+                                // Get the full name from various possible fields
+                                const fullName = user.displayName || user.displayname || user.name || 
+                                               user.fullName || user.username || user.uid || user.id || 'Unbekannt';
+                                
+                                // Extract only the first name (everything before the first space)
+                                const firstName = fullName.split(' ')[0];
+                                return firstName;
+                              }).join(', ')}
                               size="small"
                               variant="outlined"
                               icon={<PersonIcon sx={{ fontSize: '0.65rem !important' }} />}
-                              sx={{ height: 16, fontSize: '0.6rem' }}
+                              sx={{ 
+                                height: 16, 
+                                fontSize: '0.6rem',
+                                maxWidth: '200px',
+                                '& .MuiChip-label': {
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }
+                              }}
                             />
                           )}
                           {priorityInfo.level !== 'Normal' && (
@@ -426,49 +721,14 @@ export default function Tasks() {
                       }
                     />
                   </ListItem>
-                  {index < activeTasks.slice(0, 10).length - 1 && <Divider />}
+                  {index < tasks.length - 1 && <Divider />}
                 </React.Fragment>
               );
             })}
           </List>
         )}
         
-        {/* Show count if more tasks exist */}
-        {activeTasks.length > 10 && (
-          <Box sx={{ textAlign: 'center', mt: 2 }}>
-            <Typography variant="caption" color="text.secondary">
-              und {activeTasks.length - 10} weitere Aufgaben...
-            </Typography>
-          </Box>
-        )}
-      </Box>
-
-      {/* Statistics Footer */}
-      <Box sx={{ 
-        mt: 2, 
-        pt: 2, 
-        borderTop: 1, 
-        borderColor: 'divider',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Typography variant="caption" color="text.secondary">
-            Aktiv: {activeTasks.length}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Erledigt: {completedTasks.length}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Boards: {tasksData?.boards?.length || 0}
-          </Typography>
-        </Box>
-        {tasksData?.total_cards !== undefined && (
-          <Typography variant="caption" color="text.secondary">
-            Gesamt: {tasksData.total_cards} Aufgaben
-          </Typography>
-        )}
+        {/* Note: We only show top 5 tasks per deck now, no "more tasks" needed */}
       </Box>
     </Box>
   );
