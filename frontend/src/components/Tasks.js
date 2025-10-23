@@ -628,21 +628,6 @@ export default function Tasks() {
                       }
                     }}
                   >
-                    <ListItemAvatar>
-                      <Avatar sx={{ 
-                        bgcolor: task.done ? '#48bb78' : '#9BB8D9',
-                        width: 28, 
-                        height: 28,
-                        border: '2px solid #ffffff',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                      }}>
-                        {task.done ? (
-                          <CheckCircleIcon sx={{ fontSize: 14, color: 'white' }} />
-                        ) : (
-                          <RadioButtonUncheckedIcon sx={{ fontSize: 14, color: '#0459C9' }} />
-                        )}
-                      </Avatar>
-                    </ListItemAvatar>
                     <ListItemText
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -709,7 +694,7 @@ export default function Tasks() {
                               }}
                             />
                           )}
-                          {priorityInfo.level !== 'Normal' && (
+                          {priorityInfo.level !== 'Normal' && priorityInfo.level !== 'Überfällig' && (
                             <Chip
                               label={priorityInfo.level}
                               size="small"
