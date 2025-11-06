@@ -108,9 +108,10 @@ class GoogleImagesService
             'safe' => 'active',
             'imgType' => 'photo',
             'imgSize' => 'medium',
-            'imgColorType' => 'color',
-            'fileType' => 'jpg,png',
-            'rights' => 'cc_publicdomain,cc_attribute,cc_sharealike,cc_noncommercial'
+            // Remove restrictive parameters to get more results
+            // 'imgColorType' => 'color',
+            // 'fileType' => 'jpg,png',
+            // 'rights' => 'cc_publicdomain,cc_attribute,cc_sharealike,cc_noncommercial'
         ];
 
         $retries = 0;
@@ -179,15 +180,28 @@ class GoogleImagesService
     }
 
     /**
-     * Build search query using the raw food name without manipulation
+     * Build search query by extracting the main dish name
      *
      * @param string $foodName
      * @return string
      */
     private function buildSearchQuery(string $foodName): string
     {
-        // Use the food name exactly as provided from the mensa API
-        return trim($foodName);
+        // Extract the main dish name (first few words) to improve search success
+        $cleaned = trim($foodName);
+        
+        // Split by common separators to get the main dish
+        $parts = preg_split('/\s+(mit|in|an|auf|und|oder|dazu|Beilagensalat|Regio-|Kartoffeln)\s+/iu', $cleaned, 2);
+        $mainDish = $parts[0];
+        
+        // If still too long (more than 4 words), take first 3-4 words
+        $words = explode(' ', $mainDish);
+        if (count($words) > 4) {
+            $mainDish = implode(' ', array_slice($words, 0, 3));
+        }
+        
+        // Add "food" or "gericht" to help Google understand context
+        return trim($mainDish) . ' Gericht';
     }
 
     /**
