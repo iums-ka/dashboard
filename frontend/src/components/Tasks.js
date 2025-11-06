@@ -31,6 +31,47 @@ import FolderIcon from '@mui/icons-material/Folder';
 const API_BASE_URL = 'http://localhost:8000/api';
 const REFRESH_INTERVAL = 1200000; // 20 minutes
 
+// TODO: TEMPORARY MOCK - Replace with backend API call to /api/users/with-avatars
+// Mock user avatar mapping - maps display names to local avatar files in /public
+const USER_AVATAR_MAP = {
+  'ethan': '/avatar.ethan.png',
+  'jonas': '/avatar.jonas.jpg',
+  'leon': '/avatar.leon.png',
+  'lukas': '/avatar.lukas.png',
+  'marie': '/avatar.marie.png',
+  'marit': '/avatar.marit.png',
+  'riem': '/avatar.riem.png',
+  'thomas': '/avatar.thomas.png',
+  'waldemar': '/avatar.waldemar.png',
+  'blanche': '/avatar.blanche.jpg',
+  'bastian': '/avatar.bastian.png',
+  'dilara': '/avatar.dilara.png',
+  'melanie': '/avatar.melanie.png',
+  'maximilian': '/avatar.maximillian.png',
+  'julia': '/avatar.julia.png',
+};
+
+// Helper function to get local avatar for a user
+const getLocalAvatar = (user) => {
+  const fullName = user.displayName || user.displayname || user.name || 
+                   user.fullName || user.username || user.uid || user.id || '';
+  const firstName = fullName.toLowerCase().split(' ')[0];
+  
+  // Try exact match
+  if (USER_AVATAR_MAP[firstName]) {
+    return USER_AVATAR_MAP[firstName];
+  }
+  
+  // Try partial match
+  for (const [key, avatar] of Object.entries(USER_AVATAR_MAP)) {
+    if (firstName.includes(key) || key.includes(firstName)) {
+      return avatar;
+    }
+  }
+  
+  return null;
+};
+
 export default function Tasks() {
   const theme = useTheme();
   const [tasksData, setTasksData] = useState(null);
@@ -497,16 +538,6 @@ export default function Tasks() {
           <Typography variant="h6" sx={{ color: '#0459C9', fontWeight: 600 }}>
             Aufgaben
           </Typography>
-          <Chip 
-            label={`${tasks.length} Aufgaben`} 
-            size="small" 
-            sx={{ 
-              bgcolor: '#9BB8D9', 
-              color: '#0459C9',
-              fontWeight: 500,
-              '& .MuiChip-label': { px: 1 }
-            }}
-          />
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {lastUpdated && (
@@ -549,8 +580,8 @@ export default function Tasks() {
       {/* Current Deck Display */}
       {currentBoard && tasksData?.boards && tasksData.boards.length > 1 && (
         <Box sx={{ 
-          mb: 2,
-          pb: 1,
+          mb: 1,
+          pb: 0.5,
           borderBottom: '1px solid #e2e8f0'
         }}>
           <Typography 
@@ -618,9 +649,12 @@ export default function Tasks() {
                   <ListItem 
                     sx={{ 
                       px: 0,
-                      py: 0.75,
+                      py: 1.10,
                       borderRadius: 2,
                       transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
                       '&:hover': {
                         backgroundColor: '#f8fafc',
                         transform: 'translateX(4px)',
@@ -629,12 +663,14 @@ export default function Tasks() {
                     }}
                   >
                     <ListItemText
+                      sx={{ flex: 1, pr: 0 }}
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                           <Typography 
-                            variant="body2" 
+                            variant="body1" 
                             sx={{ 
                               fontWeight: 500,
+                              fontSize: '0.95rem',
                               textDecoration: task.done ? 'line-through' : 'none',
                               opacity: task.done ? 0.7 : 1
                             }}
@@ -647,10 +683,10 @@ export default function Tasks() {
                               size="small"
                               color={dueDateInfo.color}
                               variant="outlined"
-                              icon={<ScheduleIcon sx={{ fontSize: '0.65rem !important' }} />}
+                              icon={<ScheduleIcon sx={{ fontSize: '0.75rem !important' }} />}
                               sx={{ 
-                                height: 18, 
-                                fontSize: '0.65rem',
+                                height: 22, 
+                                fontSize: '0.75rem',
                                 borderColor: dueDateInfo.color === 'error' ? '#f56565' : '#9BB8D9',
                                 color: dueDateInfo.color === 'error' ? '#f56565' : '#0459C9'
                               }}
@@ -659,52 +695,95 @@ export default function Tasks() {
                         </Box>
                       }
                       secondary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
                           <Chip
                             label={task.stackTitle}
                             size="small"
                             variant="outlined"
-                            icon={<FolderIcon sx={{ fontSize: '0.65rem !important' }} />}
-                            sx={{ height: 16, fontSize: '0.6rem' }}
+                            icon={<FolderIcon sx={{ fontSize: '0.75rem !important' }} />}
+                            sx={{ height: 20, fontSize: '0.7rem' }}
                           />
-                          {task.assignedUsers?.length > 0 && (
-                            <Chip
-                              label={task.assignedUsers.map(userAssignment => {
-                                const user = userAssignment.participant || userAssignment;
-                                // Get the full name from various possible fields
-                                const fullName = user.displayName || user.displayname || user.name || 
-                                               user.fullName || user.username || user.uid || user.id || 'Unbekannt';
-                                
-                                // Extract only the first name (everything before the first space)
-                                const firstName = fullName.split(' ')[0];
-                                return firstName;
-                              }).join(', ')}
-                              size="small"
-                              variant="outlined"
-                              icon={<PersonIcon sx={{ fontSize: '0.65rem !important' }} />}
-                              sx={{ 
-                                height: 16, 
-                                fontSize: '0.6rem',
-                                maxWidth: '200px',
-                                '& .MuiChip-label': {
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap'
-                                }
-                              }}
-                            />
-                          )}
                           {priorityInfo.level !== 'Normal' && priorityInfo.level !== 'Überfällig' && (
                             <Chip
                               label={priorityInfo.level}
                               size="small"
                               color={priorityInfo.color}
-                              sx={{ height: 16, fontSize: '0.6rem' }}
+                              sx={{ height: 20, fontSize: '0.7rem' }}
                             />
                           )}
                         </Box>
                       }
                     />
+                    {task.assignedUsers?.length > 0 && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, mr: 1.5 }}>
+                        {task.assignedUsers.slice(0, 3).map((userAssignment, userIndex) => {
+                          const user = userAssignment.participant || userAssignment;
+                          const fullName = user.displayName || user.displayname || user.name || 
+                                         user.fullName || user.username || user.uid || user.id || 'Unbekannt';
+                          const firstName = fullName.split(' ')[0];
+                          
+                          // Use local avatar images (mock)
+                          const avatarSrc = getLocalAvatar(user);
+                          
+                          return (
+                            <Tooltip key={userIndex} title={fullName} arrow>
+                              <Avatar
+                                src={avatarSrc}
+                                alt={firstName}
+                                sx={{
+                                  width: 40,
+                                  height: 40,
+                                  fontSize: '1rem',
+                                  bgcolor: avatarSrc ? 'transparent' : '#0459C9',
+                                  border: '2px solid white',
+                                  cursor: 'default',
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                                  marginLeft: userIndex > 0 ? '-10px' : 0,
+                                  zIndex: task.assignedUsers.length - userIndex,
+                                  transition: 'transform 0.2s ease',
+                                  '&:hover': {
+                                    transform: 'scale(1.1)',
+                                    zIndex: 100
+                                  }
+                                }}
+                              >
+                                {!avatarSrc && firstName.charAt(0).toUpperCase()}
+                              </Avatar>
+                            </Tooltip>
+                          );
+                        })}
+                        {task.assignedUsers.length > 3 && (
+                          <Tooltip 
+                            title={task.assignedUsers.slice(3).map(ua => {
+                              const u = ua.participant || ua;
+                              return u.displayName || u.displayname || u.name || u.username || 'Unbekannt';
+                            }).join(', ')} 
+                            arrow
+                          >
+                            <Avatar
+                              sx={{
+                                width: 36,
+                                height: 36,
+                                fontSize: '0.8rem',
+                                bgcolor: '#9BB8D9',
+                                border: '2px solid white',
+                                cursor: 'default',
+                                boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                                marginLeft: '-10px',
+                                zIndex: 0,
+                                transition: 'transform 0.2s ease',
+                                '&:hover': {
+                                  transform: 'scale(1.1)',
+                                  zIndex: 100
+                                }
+                              }}
+                            >
+                              +{task.assignedUsers.length - 3}
+                            </Avatar>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    )}
                   </ListItem>
                   {index < tasks.length - 1 && <Divider />}
                 </React.Fragment>
