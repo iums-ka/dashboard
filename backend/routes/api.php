@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FileParserController;
 use App\Http\Controllers\MensaController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\NextcloudUserController;
 use App\Services\GoogleImagesService;
 
 Route::get('/user', function (Request $request) {
@@ -56,3 +57,13 @@ Route::get('/tasks/boards/{boardId}', [TaskController::class, 'board']);
 Route::get('/tasks/boards/{boardId}/stacks', [TaskController::class, 'stacks']);
 Route::get('/tasks/boards/{boardId}/stacks/{stackId}/cards', [TaskController::class, 'cards']);
 Route::get('/tasks/health', [TaskController::class, 'health']);
+
+// Nextcloud User endpoints
+Route::get('/users', [NextcloudUserController::class, 'index']);
+Route::get('/users/with-avatars', [NextcloudUserController::class, 'indexWithAvatars']);
+Route::get('/users/debug', [NextcloudUserController::class, 'debug']);
+Route::get('/users/{userId}', [NextcloudUserController::class, 'show']);
+Route::get('/users/{userId}/avatar', [NextcloudUserController::class, 'avatar']);
+Route::get('/users/{userId}/avatar-base64', [NextcloudUserController::class, 'avatarBase64']);
+Route::post('/users/cache/clear', [NextcloudUserController::class, 'clearCache']);
+Route::get('/users/health/check', [NextcloudUserController::class, 'health']);
