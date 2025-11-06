@@ -317,7 +317,7 @@ export default function Antraege() {
             sx={{ 
               tableLayout: 'fixed',
               width: '100%',
-              '& .MuiTableCell-root': {
+              '& .MuiTableBody-root .MuiTableCell-root': {
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap'
@@ -325,21 +325,21 @@ export default function Antraege() {
             }}
           >
             <colgroup>
-              <col style={{ width: '5%' }} /> {/* Status */}
-              <col style={{ width: '5%' }} /> {/* Priorität */}
-              <col style={{ width: '47%' }} /> {/* Ausschreibung */}
+              <col style={{ width: '6%' }} /> {/* Status */}
+              <col style={{ width: '6%' }} /> {/* Priorität */}
+              <col style={{ width: '41%' }} /> {/* Ausschreibung */}
               <col style={{ width: '10%' }} /> {/* Fördervolumen */}
-              <col style={{ width: '12%' }} /> {/* Deadline */}
+              <col style={{ width: '8%' }} /> {/* Deadline */}
               <col style={{ width: '21%' }} /> {/* Themen */}
             </colgroup>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600, backgroundColor: '#f8fafc', color: '#0459C9' }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600, backgroundColor: '#f8fafc', color: '#0459C9' }}>Priorität</TableCell>
-                <TableCell sx={{ fontWeight: 600, backgroundColor: '#f8fafc', color: '#0459C9' }}>Ausschreibung</TableCell>
-                <TableCell sx={{ fontWeight: 600, backgroundColor: '#f8fafc', color: '#0459C9' }}>Fördervolumen</TableCell>
-                <TableCell sx={{ fontWeight: 600, backgroundColor: '#f8fafc', color: '#0459C9' }}>Deadline</TableCell>
-                <TableCell sx={{ fontWeight: 600, backgroundColor: '#f8fafc', color: '#0459C9' }}>Themen</TableCell>
+                <TableCell sx={{ fontWeight: 600, backgroundColor: '#f8fafc', color: '#0459C9', overflow: 'visible', textOverflow: 'clip', whiteSpace: 'normal' }}>Status</TableCell>
+                <TableCell sx={{ fontWeight: 600, backgroundColor: '#f8fafc', color: '#0459C9', overflow: 'visible', textOverflow: 'clip', whiteSpace: 'normal' }}>Priorität</TableCell>
+                <TableCell sx={{ fontWeight: 600, backgroundColor: '#f8fafc', color: '#0459C9', overflow: 'visible', textOverflow: 'clip', whiteSpace: 'normal' }}>Ausschreibung</TableCell>
+                <TableCell sx={{ fontWeight: 600, backgroundColor: '#f8fafc', color: '#0459C9', overflow: 'visible', textOverflow: 'clip', whiteSpace: 'normal' }}>Fördervolumen</TableCell>
+                <TableCell sx={{ fontWeight: 600, backgroundColor: '#f8fafc', color: '#0459C9', overflow: 'visible', textOverflow: 'clip', whiteSpace: 'normal' }}>Deadline</TableCell>
+                <TableCell sx={{ fontWeight: 600, backgroundColor: '#f8fafc', color: '#0459C9', overflow: 'visible', textOverflow: 'clip', whiteSpace: 'normal' }}>Themen</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
