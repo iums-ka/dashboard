@@ -257,7 +257,9 @@ export default function Mensa() {
                                     overflow: 'hidden',
                                     border: '2px solid #e2e8f0',
                                     position: 'relative',
-                                    background: '#f1f5f9'
+                                    background: '#f1f5f9',
+                                    // Slightly dimmed if fallback image
+                                    opacity: menue.image.is_fallback ? 0.7 : 1
                                   }}>
                                     <img 
                                       src={menue.image.url}

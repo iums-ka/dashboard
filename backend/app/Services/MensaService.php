@@ -35,9 +35,16 @@ class MensaService
             $parsedData = $this->parseMenuXml($xmlData);
             $filteredData = $this->filterRelevantDays($parsedData);
             
-            // Add images if requested
+            // Add images if requested - wrapped in separate try-catch to prevent image failures from breaking entire response
             if ($includeImages) {
-                $filteredData = $this->addImagesToMenuData($filteredData);
+                try {
+                    $filteredData = $this->addImagesToMenuData($filteredData);
+                } catch (Exception $imageException) {
+                    Log::warning('Failed to add images to menu data, continuing without images', [
+                        'error' => $imageException->getMessage()
+                    ]);
+                    // Continue without images rather than failing completely
+                }
             }
             
             return [
@@ -47,7 +54,9 @@ class MensaService
                 'images_included' => $includeImages
             ];
         } catch (Exception $e) {
-            Log::error('MensaService error: ' . $e->getMessage());
+            Log::error('MensaService error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             throw new Exception('Fehler beim Laden des Speiseplans: ' . $e->getMessage());
         }
     }

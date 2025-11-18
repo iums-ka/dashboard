@@ -13,6 +13,10 @@ class GoogleImagesService
     private const CACHE_TTL = 86400; // 24 hours in seconds
     private const MAX_RETRIES = 3;
     private const REQUEST_TIMEOUT = 15;
+    
+    // Fallback image when Google API fails or returns no results
+    // Uses local image from backend public folder
+    private const FALLBACK_FOOD_IMAGE_PATH = '/mensa_fallback.jpg';
 
     private string $apiKey;
     private string $searchEngineId;
@@ -50,18 +54,23 @@ class GoogleImagesService
         try {
             $imageData = $this->performImageSearch($foodName);
             
-            // Cache the result (even if null) to avoid repeated API calls
+            // If no image found, use fallback
+            if ($imageData === null) {
+                $imageData = $this->getFallbackImageData($foodName);
+            }
+            
+            // Cache the result (including fallback) to avoid repeated API calls
             Cache::put($cacheKey, $imageData, self::CACHE_TTL);
             
             return $imageData;
         } catch (Exception $e) {
-            Log::warning('GoogleImagesService search failed', [
+            Log::warning('GoogleImagesService search failed, using fallback image', [
                 'food_name' => $foodName,
                 'error' => $e->getMessage()
             ]);
             
-            // Return null on error, don't cache errors
-            return null;
+            // Return fallback image instead of null to prevent frontend issues
+            return $this->getFallbackImageData($foodName);
         }
     }
 
@@ -287,5 +296,29 @@ class GoogleImagesService
     {
         // This is a simple implementation - in production you might want to use cache tags
         return Cache::flush();
+    }
+
+    /**
+     * Get fallback image data when Google API fails or returns no results
+     *
+     * @param string $foodName
+     * @return array
+     */
+    private function getFallbackImageData(string $foodName): array
+    {
+        // Build full URL to local fallback image
+        $fallbackUrl = url(self::FALLBACK_FOOD_IMAGE_PATH);
+        
+        return [
+            'url' => $fallbackUrl,
+            'title' => 'Generic Food Image',
+            'width' => 400,
+            'height' => 400,
+            'thumbnail' => $fallbackUrl,
+            'source_page' => '',
+            'search_query' => $foodName,
+            'cached_at' => now()->toISOString(),
+            'is_fallback' => true
+        ];
     }
 }
