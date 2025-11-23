@@ -157,6 +157,7 @@ const WELCOME_TEXT_SIZE = '1.1rem';
 const layoutConfig = [
   // Logo and welcome - top left, smaller size
   { id: 'welcome', x: 0, y: 0, w: 6, h: 5, title: '', component: (
+    
       <Box sx={{ 
         display: 'flex', 
         flexDirection: 'column', 
@@ -329,10 +330,10 @@ const layoutConfig = [
       </Box>
     ) },
  
-  // Tasks module - top middle
-  { id: 'tasks', x: 6, y: 0, w: 5, h: 5, title: '', component: <Tasks /> },
-   // Tasks module - top middle
-  { id: 'tasks', x: 11, y: 0, w: 5, h: 5, title: '', component: <Tasks /> },
+  // Tasks module - left instance
+  { id: 'tasks-1', x: 6, y: 0, w: 5, h: 5, title: '', component: <Tasks instanceId="instance_1" /> },
+  // Tasks module - right instance
+  { id: 'tasks-2', x: 11, y: 0, w: 5, h: 5, title: '', component: <Tasks instanceId="instance_2" /> },
   
   // Mensa module - top right
   { id: 'mensa', x: 0, y: 5, w: 6, h: 4, title: '', component: <Mensa /> },

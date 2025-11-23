@@ -83,6 +83,14 @@ class TaskController extends Controller
 
             $boards = $this->deckService->getBoards();
 
+            // Get default boards from config if specified
+            $defaultBoards = config('services.nextcloud.deck.default_boards');
+            $allowedBoardIds = [];
+            
+            if ($defaultBoards) {
+                $allowedBoardIds = array_filter(array_map('intval', explode(',', $defaultBoards)));
+            }
+
             // Format boards for frontend consumption
             $formattedBoards = array_map(function ($board) {
                 return [
@@ -95,6 +103,19 @@ class TaskController extends Controller
                     'acl' => $board['acl'] ?? []
                 ];
             }, $boards);
+
+            // Filter boards to only include those in default config (if specified)
+            if (!empty($allowedBoardIds)) {
+                $formattedBoards = array_values(array_filter($formattedBoards, function ($board) use ($allowedBoardIds) {
+                    return in_array($board['id'], $allowedBoardIds);
+                }));
+                
+                Log::info('Filtered boards by default config', [
+                    'allowed_board_ids' => $allowedBoardIds,
+                    'total_boards' => count($boards),
+                    'filtered_boards' => count($formattedBoards)
+                ]);
+            }
 
             return response()->json([
                 'success' => true,

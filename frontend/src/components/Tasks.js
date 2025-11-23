@@ -27,6 +27,9 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import FolderIcon from '@mui/icons-material/Folder';
+import SettingsIcon from '@mui/icons-material/Settings';
+import BoardSelector from './BoardSelector';
+import { loadSelectedBoards, saveSelectedBoards } from '../utils/boardStorage';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 const REFRESH_INTERVAL = 1200000; // 20 minutes
@@ -49,6 +52,8 @@ const USER_AVATAR_MAP = {
   'melanie': '/avatar.melanie.png',
   'maximilian': '/avatar.maximillian.png',
   'julia': '/avatar.julia.png',
+  'kirthan': '/avatar.kirthan.png',
+
 };
 
 // Helper function to get local avatar for a user
@@ -72,12 +77,16 @@ const getLocalAvatar = (user) => {
   return null;
 };
 
-export default function Tasks() {
+export default function Tasks({ instanceId = 'default' }) {
   const theme = useTheme();
   const [tasksData, setTasksData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  
+  // Board selection state
+  const [selectedBoards, setSelectedBoards] = useState(() => loadSelectedBoards(instanceId) || []);
+  const [boardSelectorOpen, setBoardSelectorOpen] = useState(false);
   
   // Rotation state variables for deck cycling
   const [currentDeckIndex, setCurrentDeckIndex] = useState(0);
@@ -97,7 +106,13 @@ export default function Tasks() {
       }
       setError(null);
 
-      const response = await fetch(`${API_BASE_URL}/tasks`, {
+      // Build URL with board filter if boards are selected
+      let url = `${API_BASE_URL}/tasks`;
+      if (selectedBoards.length > 0) {
+        url += `?boards=${selectedBoards.join(',')}`;
+      }
+
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -127,7 +142,7 @@ export default function Tasks() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedBoards]);
 
   // Manual refresh handler
   const handleRefresh = useCallback(() => {
@@ -145,6 +160,12 @@ export default function Tasks() {
 
     return () => clearInterval(intervalId);
   }, [fetchTasksData]);
+
+  // Handle board selection save
+  const handleBoardSelectionSave = useCallback((boardIds) => {
+    setSelectedBoards(boardIds);
+    saveSelectedBoards(instanceId, boardIds);
+  }, [instanceId]);
 
   // Rotation timer setup with progress animation
   useEffect(() => {
@@ -540,6 +561,19 @@ export default function Tasks() {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Tooltip title="Board-Auswahl" arrow>
+            <IconButton 
+              onClick={() => setBoardSelectorOpen(true)}
+              size="small"
+              sx={{ 
+                color: '#0459C9',
+                '&:hover': { bgcolor: '#9BB8D9' },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              <SettingsIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           {lastUpdated && (
             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
               {lastUpdated.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
@@ -716,7 +750,7 @@ export default function Tasks() {
                     />
                     {task.assignedUsers?.length > 0 && (
                       <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, mr: 1.5 }}>
-                        {task.assignedUsers.slice(0, 3).map((userAssignment, userIndex) => {
+                        {task.assignedUsers.map((userAssignment, userIndex) => {
                           const user = userAssignment.participant || userAssignment;
                           const fullName = user.displayName || user.displayname || user.name || 
                                          user.fullName || user.username || user.uid || user.id || 'Unbekannt';
@@ -752,36 +786,6 @@ export default function Tasks() {
                             </Tooltip>
                           );
                         })}
-                        {task.assignedUsers.length > 3 && (
-                          <Tooltip 
-                            title={task.assignedUsers.slice(3).map(ua => {
-                              const u = ua.participant || ua;
-                              return u.displayName || u.displayname || u.name || u.username || 'Unbekannt';
-                            }).join(', ')} 
-                            arrow
-                          >
-                            <Avatar
-                              sx={{
-                                width: 36,
-                                height: 36,
-                                fontSize: '0.8rem',
-                                bgcolor: '#9BB8D9',
-                                border: '2px solid white',
-                                cursor: 'default',
-                                boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-                                marginLeft: '-10px',
-                                zIndex: 0,
-                                transition: 'transform 0.2s ease',
-                                '&:hover': {
-                                  transform: 'scale(1.1)',
-                                  zIndex: 100
-                                }
-                              }}
-                            >
-                              +{task.assignedUsers.length - 3}
-                            </Avatar>
-                          </Tooltip>
-                        )}
                       </Box>
                     )}
                   </ListItem>
@@ -794,6 +798,14 @@ export default function Tasks() {
         
         {/* Note: We only show top 5 tasks per deck now, no "more tasks" needed */}
       </Box>
+
+      {/* Board Selector Dialog */}
+      <BoardSelector
+        open={boardSelectorOpen}
+        onClose={() => setBoardSelectorOpen(false)}
+        onSave={handleBoardSelectionSave}
+        currentSelection={selectedBoards}
+      />
     </Box>
   );
 }
