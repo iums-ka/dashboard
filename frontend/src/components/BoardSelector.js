@@ -19,6 +19,29 @@ import {
 import FolderIcon from '@mui/icons-material/Folder';
 import RefreshIcon from '@mui/icons-material/Refresh';
 
+/**
+ * TODO: REFACTOR - State Management Architecture
+ * 
+ * Current implementation uses localStorage directly for board selection persistence
+ * and inline caching logic. This works but violates separation of concerns.
+ * 
+ * Future improvements:
+ * - Move to React Context API or Redux for centralized state management
+ * - Create a dedicated BoardsProvider context for shared board data
+ * - Implement proper cache invalidation strategy
+ * - Use React Query or SWR for server state management
+ * - Separate data fetching logic from UI components
+ * - Create a proper service layer for API calls
+ * 
+ * This would improve:
+ * - Testability (easier to mock state)
+ * - Reusability (multiple components can access board state)
+ * - Performance (automatic cache management)
+ * - Maintainability (clearer data flow)
+ * 
+ * Estimated refactor effort: 4-6 hours
+ */
+
 const API_BASE_URL = 'http://localhost:8000/api';
 const BOARDS_CACHE_KEY = 'nextcloud_boards_cache';
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -271,17 +294,6 @@ export default function BoardSelector({ open, onClose, onSave, currentSelection 
                       <Typography variant="body1">
                         {board.title}
                       </Typography>
-                      {board.color && (
-                        <Box
-                          sx={{
-                            width: 16,
-                            height: 16,
-                            borderRadius: '50%',
-                            backgroundColor: board.color,
-                            border: '1px solid rgba(0,0,0,0.1)'
-                          }}
-                        />
-                      )}
                       <Chip 
                         label={`ID: ${board.id}`} 
                         size="small" 

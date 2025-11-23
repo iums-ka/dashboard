@@ -3,6 +3,25 @@
  * 
  * Helper functions for managing board selection persistence in localStorage.
  * Each Tasks module instance maintains its own board selection using an instanceId.
+ * 
+ * TODO: REFACTOR - Replace with proper state management
+ * 
+ * Current approach uses direct localStorage access which has limitations:
+ * - No type safety (plain strings/JSON)
+ * - No reactivity across components
+ * - Manual synchronization required
+ * - No built-in error recovery
+ * - Testing requires localStorage mocking
+ * 
+ * Recommended refactor:
+ * - Move to IndexedDB for larger datasets
+ * - Implement a proper Storage service class with error handling
+ * - Add TypeScript for type safety
+ * - Use browser storage events for cross-tab sync
+ * - Consider using a library like localforage
+ * - Integrate with React state management (Context/Redux)
+ * 
+ * This is acceptable for MVP but should be revisited before production scaling.
  */
 
 const STORAGE_PREFIX = 'tasks_boards';

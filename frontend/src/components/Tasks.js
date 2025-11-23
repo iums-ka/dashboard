@@ -31,6 +31,29 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import BoardSelector from './BoardSelector';
 import { loadSelectedBoards, saveSelectedBoards } from '../utils/boardStorage';
 
+/**
+ * TODO: REFACTOR - Component Architecture
+ * 
+ * Current implementation tightly couples data fetching, state management,
+ * and UI rendering. Board selection is managed via localStorage utilities.
+ * 
+ * Issues with current approach:
+ * - Mixed concerns (data fetching + UI + business logic)
+ * - Props drilling (instanceId passed down)
+ * - Duplicate code between multiple Tasks instances
+ * - Direct localStorage dependency makes testing harder
+ * - No centralized board state (each instance manages independently)
+ * 
+ * Recommended improvements:
+ * - Extract data fetching to custom hooks (useTasks, useBoards)
+ * - Create a BoardSelectionProvider context for shared state
+ * - Split into smaller components (TasksList, TaskItem, TaskHeader)
+ * - Move business logic (sorting, filtering) to separate modules
+ * - Use composition pattern for better reusability
+ * 
+ * See: frontend/docs/REFACTORING_PLAN.md (to be created)
+ */
+
 const API_BASE_URL = 'http://localhost:8000/api';
 const REFRESH_INTERVAL = 1200000; // 20 minutes
 
