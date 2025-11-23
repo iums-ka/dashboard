@@ -303,8 +303,8 @@ export default function BoardSelector({ open, onClose, onSave, currentSelection 
                     </Box>
                   }
                   sx={{
-                    mb: 1,
-                    p: 1,
+                    mb: 0.1,
+                    p: 0.1,
                     borderRadius: 1,
                     '&:hover': {
                       backgroundColor: 'action.hover'
