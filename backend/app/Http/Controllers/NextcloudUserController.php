@@ -2,26 +2,35 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\Traits\ApiResponse;
 use App\Services\NextcloudUserService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Controller for Nextcloud user management.
+ */
 class NextcloudUserController extends Controller
 {
-    private NextcloudUserService $userService;
-
-    public function __construct(NextcloudUserService $userService)
-    {
-        $this->userService = $userService;
-    }
+    use ApiResponse;
 
     /**
-     * Get all users from Nextcloud
-     * 
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * Default and bounds for avatar size.
      */
-    public function index(Request $request)
+    private const AVATAR_SIZE_DEFAULT = 64;
+    private const AVATAR_SIZE_MIN = 16;
+    private const AVATAR_SIZE_MAX = 512;
+
+    public function __construct(
+        private readonly NextcloudUserService $userService
+    ) {}
+
+    /**
+     * Get all users from Nextcloud.
+     */
+    public function index(Request $request): JsonResponse
     {
         try {
             $useCache = $request->get('cache', 'true') !== 'false';
@@ -55,20 +64,17 @@ class NextcloudUserController extends Controller
     }
 
     /**
-     * Get all users with their avatars (base64 encoded)
-     * 
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * Get all users with their avatars (base64 encoded).
      */
-    public function indexWithAvatars(Request $request)
+    public function indexWithAvatars(Request $request): JsonResponse
     {
         try {
             $useCache = $request->get('cache', 'true') !== 'false';
-            $avatarSize = (int) $request->get('size', 64);
+            $avatarSize = (int) $request->get('size', self::AVATAR_SIZE_DEFAULT);
             
             // Validate avatar size
-            if ($avatarSize < 16 || $avatarSize > 512) {
-                $avatarSize = 64;
+            if ($avatarSize < self::AVATAR_SIZE_MIN || $avatarSize > self::AVATAR_SIZE_MAX) {
+                $avatarSize = self::AVATAR_SIZE_DEFAULT;
             }
             
             Log::info('User list with avatars request received', [
@@ -102,13 +108,9 @@ class NextcloudUserController extends Controller
     }
 
     /**
-     * Get details for a specific user
-     * 
-     * @param Request $request
-     * @param string $userId
-     * @return \Illuminate\Http\JsonResponse
+     * Get details for a specific user.
      */
-    public function show(Request $request, string $userId)
+    public function show(Request $request, string $userId): JsonResponse
     {
         try {
             $useCache = $request->get('cache', 'true') !== 'false';
@@ -150,20 +152,16 @@ class NextcloudUserController extends Controller
     }
 
     /**
-     * Get user avatar/profile picture
-     * 
-     * @param Request $request
-     * @param string $userId
-     * @return \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
+     * Get user avatar/profile picture.
      */
-    public function avatar(Request $request, string $userId)
+    public function avatar(Request $request, string $userId): Response|JsonResponse
     {
         try {
-            $size = (int) $request->get('size', 64);
+            $size = (int) $request->get('size', self::AVATAR_SIZE_DEFAULT);
             
             // Validate avatar size
-            if ($size < 16 || $size > 512) {
-                $size = 64;
+            if ($size < self::AVATAR_SIZE_MIN || $size > self::AVATAR_SIZE_MAX) {
+                $size = self::AVATAR_SIZE_DEFAULT;
             }
             
             Log::info('User avatar request received', [
@@ -193,20 +191,16 @@ class NextcloudUserController extends Controller
     }
 
     /**
-     * Get user avatar as base64 encoded string
-     * 
-     * @param Request $request
-     * @param string $userId
-     * @return \Illuminate\Http\JsonResponse
+     * Get user avatar as base64 encoded string.
      */
-    public function avatarBase64(Request $request, string $userId)
+    public function avatarBase64(Request $request, string $userId): JsonResponse
     {
         try {
-            $size = (int) $request->get('size', 64);
+            $size = (int) $request->get('size', self::AVATAR_SIZE_DEFAULT);
             
             // Validate avatar size
-            if ($size < 16 || $size > 512) {
-                $size = 64;
+            if ($size < self::AVATAR_SIZE_MIN || $size > self::AVATAR_SIZE_MAX) {
+                $size = self::AVATAR_SIZE_DEFAULT;
             }
             
             Log::info('User avatar (base64) request received', [
@@ -250,12 +244,9 @@ class NextcloudUserController extends Controller
     }
 
     /**
-     * Clear user cache
-     * 
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * Clear user cache.
      */
-    public function clearCache(Request $request)
+    public function clearCache(Request $request): JsonResponse
     {
         try {
             $userId = $request->get('user_id');
@@ -283,11 +274,9 @@ class NextcloudUserController extends Controller
     }
 
     /**
-     * Health check for Nextcloud user integration
-     * 
-     * @return \Illuminate\Http\JsonResponse
+     * Health check for Nextcloud user integration.
      */
-    public function health()
+    public function health(): JsonResponse
     {
         try {
             // Try to fetch users to verify connection
@@ -313,11 +302,9 @@ class NextcloudUserController extends Controller
     }
 
     /**
-     * Debug endpoint - Get sample user data structure
-     * 
-     * @return \Illuminate\Http\JsonResponse
+     * Debug endpoint - Get sample user data structure.
      */
-    public function debug()
+    public function debug(): JsonResponse
     {
         try {
             $users = $this->userService->getAllUsersWithAvatars(64, false);

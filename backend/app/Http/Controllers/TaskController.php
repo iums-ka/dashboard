@@ -2,26 +2,27 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\Traits\ApiResponse;
 use App\Services\NextcloudDeckService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Controller for Nextcloud Deck tasks.
+ */
 class TaskController extends Controller
 {
-    private NextcloudDeckService $deckService;
+    use ApiResponse;
 
-    public function __construct(NextcloudDeckService $deckService)
-    {
-        $this->deckService = $deckService;
-    }
+    public function __construct(
+        private readonly NextcloudDeckService $deckService
+    ) {}
 
     /**
-     * Get all tasks from Nextcloud Deck
-     * 
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * Get all tasks from Nextcloud Deck.
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         try {
             // Get optional board IDs from request
@@ -72,11 +73,9 @@ class TaskController extends Controller
     }
 
     /**
-     * Get all available boards
-     * 
-     * @return \Illuminate\Http\JsonResponse
+     * Get all available boards.
      */
-    public function boards()
+    public function boards(): JsonResponse
     {
         try {
             Log::info('Board list request received');
@@ -140,13 +139,9 @@ class TaskController extends Controller
     }
 
     /**
-     * Get stacks for a specific board
-     * 
-     * @param Request $request
-     * @param int $boardId
-     * @return \Illuminate\Http\JsonResponse
+     * Get stacks for a specific board.
      */
-    public function stacks(Request $request, int $boardId)
+    public function stacks(Request $request, int $boardId): JsonResponse
     {
         try {
             Log::info('Stack list request received', ['board_id' => $boardId]);
@@ -190,14 +185,9 @@ class TaskController extends Controller
     }
 
     /**
-     * Get cards for a specific stack
-     * 
-     * @param Request $request
-     * @param int $boardId
-     * @param int $stackId
-     * @return \Illuminate\Http\JsonResponse
+     * Get cards for a specific stack.
      */
-    public function cards(Request $request, int $boardId, int $stackId)
+    public function cards(Request $request, int $boardId, int $stackId): JsonResponse
     {
         try {
             Log::info('Cards list request received', [
@@ -258,13 +248,9 @@ class TaskController extends Controller
     }
 
     /**
-     * Get a complete board with all stacks and cards
-     * 
-     * @param Request $request
-     * @param int $boardId
-     * @return \Illuminate\Http\JsonResponse
+     * Get a complete board with all stacks and cards.
      */
-    public function board(Request $request, int $boardId)
+    public function board(Request $request, int $boardId): JsonResponse
     {
         try {
             Log::info('Complete board request received', ['board_id' => $boardId]);
@@ -296,11 +282,9 @@ class TaskController extends Controller
     }
 
     /**
-     * Get connection health status
-     * 
-     * @return \Illuminate\Http\JsonResponse
+     * Get connection health status.
      */
-    public function health()
+    public function health(): JsonResponse
     {
         try {
             $status = $this->deckService->testConnection();

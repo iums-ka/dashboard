@@ -2,56 +2,52 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Traits\ApiResponse;
 use App\Services\MensaService;
-
-use Exception;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
+/**
+ * Controller for Mensa menu data.
+ */
 class MensaController extends Controller
 {
-    private MensaService $mensaService;
+    use ApiResponse;
 
-    public function __construct(MensaService $mensaService)
-    {
-        $this->mensaService = $mensaService;
-    }
+    public function __construct(
+        private readonly MensaService $mensaService
+    ) {}
 
     /**
-     * Get current and next day menu data
-     * @return JsonResponse
+     * Get current and next day menu data.
      */
     public function index(): JsonResponse
     {
         try {
             $data = $this->mensaService->getMenuData();
-            
-            return response()->json($data, 200);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage(),
-                'data' => null
-            ], 500);
+            return response()->json($data);
+        } catch (\Exception $e) {
+            return $this->errorResponse(
+                'Mensa API error',
+                $e->getMessage(),
+                500
+            );
         }
     }
 
     /**
-     * Get current and next day menu data with food images
-     * @return JsonResponse
+     * Get current and next day menu data with food images.
      */
     public function indexWithImages(): JsonResponse
     {
         try {
             $data = $this->mensaService->getMenuData(true);
-            
-            return response()->json($data, 200);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage(),
-                'data' => null
-            ], 500);
+            return response()->json($data);
+        } catch (\Exception $e) {
+            return $this->errorResponse(
+                'Mensa API error',
+                $e->getMessage(),
+                500
+            );
         }
     }
 }

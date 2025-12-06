@@ -2,32 +2,33 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Traits\ApiResponse;
 use App\Services\NextcloudService;
 use App\Services\CsvParserService;
 use App\Services\XmlParserService;
 use App\Services\ExcelParserService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Controller for parsing files from Nextcloud.
+ */
 class FileParserController extends Controller
 {
-    private NextcloudService $nextcloudService;
-    private CsvParserService $csvParser;
-    private XmlParserService $xmlParser;
-    private ExcelParserService $excelParser;
+    use ApiResponse;
+
+    /**
+     * Supported file formats.
+     */
+    private const SUPPORTED_FORMATS = ['csv', 'xml', 'xlsx', 'xls'];
 
     public function __construct(
-        NextcloudService $nextcloudService,
-        CsvParserService $csvParser,
-        XmlParserService $xmlParser,
-        ExcelParserService $excelParser
-    ) {
-        $this->nextcloudService = $nextcloudService;
-        $this->csvParser = $csvParser;
-        $this->xmlParser = $xmlParser;
-        $this->excelParser = $excelParser;
-    }
+        private readonly NextcloudService $nextcloudService,
+        private readonly CsvParserService $csvParser,
+        private readonly XmlParserService $xmlParser,
+        private readonly ExcelParserService $excelParser
+    ) {}
 
     /**
      * Parse CSV/XML file from Nextcloud and return structured JSON data
@@ -40,8 +41,8 @@ class FileParserController extends Controller
         try {
             Log::info('Starting file parsing request');
 
-            // Get file path from environment or request
-            $filePath = env('NEXTCLOUD_FILE_PATH', '/Documents/proposals.csv');
+            // Get file path from configuration
+            $filePath = config('services.nextcloud.file_path', '/Documents/proposals.csv');
             
             Log::info('Fetching file from Nextcloud', ['file_path' => $filePath]);
 
@@ -88,12 +89,10 @@ class FileParserController extends Controller
                     break;
 
                 default:
-                    return response()->json([
-                        'success' => false,
-                        'error' => 'Unsupported file format',
-                        'supported_formats' => ['csv', 'xml', 'xlsx', 'xls'],
-                        'detected_format' => $fileExtension
-                    ], 400);
+                    return $this->validationErrorResponse(
+                        'Unsupported file format',
+                        ['supported_formats' => self::SUPPORTED_FORMATS, 'detected_format' => $fileExtension]
+                    );
             }
 
             Log::info('File parsing completed successfully', [
