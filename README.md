@@ -7,7 +7,7 @@ A web dashboard application designed for display in foyer environments, featurin
 ![screenshot](Screenshot.png)
 ## Features
 
-### 📊🔧Dashboard Technical Features
+### 📊 Dashboard Technical Features
 - **Modular Grid Layout**: 16x9 responsive grid system for flexible component arrangement
 - **Real-time Data Updates**: Automatic refresh intervals for live data display
 - **Material-UI Design**: Clean, modern interface with consistent theming
@@ -21,7 +21,7 @@ A web dashboard application designed for display in foyer environments, featurin
 - **Multi-day View**: Shows menus for upcoming days
 
 ### 📋 Antrags Management
-- **Document Processing**: Supports CSV, XML, and Excel file formats
+- **Document Processing**: Supports CSV and Excel file formats
 - **Nextcloud Integration**: Direct file access from Nextcloud storage
 - **Status Tracking**: Real-time proposal status updates
 
@@ -185,11 +185,11 @@ The frontend should automatically open in your browser at `http://localhost:3000
 - `GET /api/tasks/boards/{boardId}/stacks` - Stacks (columns) within a board
 - `GET /api/tasks/boards/{boardId}/stacks/{stackId}/cards` - Cards (tasks) within a stack
 
-#### Debug & Development
+#### Debug & Development (Local/Dev Only)
 - `GET /api/debug/google-search/{searchTerm}` - Test Google Custom Search functionality
+- `GET /api/debug/users` - Debug Nextcloud user data
 
-#### Authentication
-- `GET /api/user` - Get authenticated user (requires auth:sanctum middleware)
+> **Note**: Debug endpoints are only available in `local`, `development`, or `testing` environments.
 
 ### Adding New Services
 
@@ -204,8 +204,13 @@ The frontend should automatically open in your browser at `http://localhost:3000
 dashboard/
 ├── backend/                    # Laravel API backend
 │   ├── app/
-│   │   ├── Http/Controllers/   # API controllers
+│   │   ├── DTO/                # Data Transfer Objects
+│   │   │   └── Mensa/          # Mensa-specific DTOs
+│   │   ├── Http/
+│   │   │   ├── Controllers/    # API controllers
+│   │   │   └── Traits/         # Shared controller traits
 │   │   ├── Services/           # Business logic services
+│   │   │   └── Contracts/      # Service interfaces
 │   │   └── Models/             # Eloquent models
 │   ├── routes/api.php          # API routes definition
 │   ├── config/                 # Laravel configuration
@@ -217,7 +222,7 @@ dashboard/
 │   │   │   ├── Mensa.js       # Mensa menu component
 │   │   │   ├── Antraege.js    # Proposals component
 │   │   │   ├── GridLayout.js  # Grid layout system
-│   │   │   └── ModuleSlot.js  # Individual module container
+│   │   │   ├── ModuleSlot.js  # Individual module container
 │   │   │   └── Tasks.js       # Nextcloud Deck-Task Module
 │   │   ├── App.js             # Main application component
 │   │   └── index.js           # Application entry point
