@@ -2,6 +2,10 @@
 
 namespace App\Services;
 
+use App\DTO\BoardDTO;
+use App\DTO\CardDTO;
+use App\DTO\StackDTO;
+use App\DTO\TasksResultDTO;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -133,21 +137,15 @@ class NextcloudDeckService extends NextcloudBaseService
      * Get all tasks from all boards (aggregated view).
      *
      * @param array $boardIds Optional array of specific board IDs to fetch
-     * @return array Structured array with boards, stacks, and cards
+     * @return TasksResultDTO Structured result with boards, stacks, and cards
      * @throws \Exception
      */
-    public function getAllTasks(array $boardIds = []): array
+    public function getAllTasks(array $boardIds = []): TasksResultDTO
     {
         Log::info('Starting aggregated task fetch from Nextcloud Deck', [
             'specific_board_ids' => $boardIds,
             'fetch_all_boards' => empty($boardIds)
         ]);
-
-        $result = [
-            'boards' => [],
-            'total_cards' => 0,
-            'fetched_at' => now()->toISOString()
-        ];
 
         // If no specific board IDs provided, get all boards
         if (empty($boardIds)) {
@@ -156,17 +154,22 @@ class NextcloudDeckService extends NextcloudBaseService
             Log::info('Fetching from all available boards', ['board_count' => count($boardIds)]);
         }
 
+        $boards = [];
         foreach ($boardIds as $boardId) {
             $boardResult = $this->fetchBoardTasks($boardId);
             if ($boardResult !== null) {
-                $result['boards'][] = $boardResult;
-                $result['total_cards'] += $boardResult['total_cards'];
+                $boards[] = $boardResult;
             }
         }
 
+        $result = new TasksResultDTO(
+            boards: $boards,
+            fetchedAt: now()->toISOString()
+        );
+
         Log::info('Aggregated task fetch complete', [
-            'total_boards_processed' => count($result['boards']),
-            'total_cards_fetched' => $result['total_cards']
+            'total_boards_processed' => count($boards),
+            'total_cards_fetched' => $result->totalCards()
         ]);
 
         return $result;
@@ -176,9 +179,9 @@ class NextcloudDeckService extends NextcloudBaseService
      * Fetch tasks for a single board with fallback handling.
      *
      * @param int $boardId
-     * @return array|null Board data or null if failed
+     * @return BoardDTO|null Board DTO or null if failed
      */
-    private function fetchBoardTasks(int $boardId): ?array
+    private function fetchBoardTasks(int $boardId): ?BoardDTO
     {
         try {
             $boardData = $this->getBoardComplete($boardId);
@@ -198,27 +201,22 @@ class NextcloudDeckService extends NextcloudBaseService
      * Fallback method to fetch board tasks by fetching stacks and cards separately.
      *
      * @param int $boardId
-     * @return array|null
+     * @return BoardDTO|null
      */
-    private function fetchBoardTasksFallback(int $boardId): ?array
+    private function fetchBoardTasksFallback(int $boardId): ?BoardDTO
     {
         try {
-            $board = [
-                'id' => $boardId,
-                'title' => 'Untitled Board',
-                'color' => null,
-                'stacks' => [],
-                'total_cards' => 0
-            ];
-
             $stacks = $this->getStacks($boardId);
+            $stackDTOs = [];
 
             foreach ($stacks as $stack) {
-                $stackData = $this->buildStackData($stack);
-
+                $cards = [];
                 try {
-                    $cards = $this->getCards($boardId, $stack['id']);
-                    $stackData['cards'] = array_map([$this, 'normalizeCardData'], $cards);
+                    $cardsData = $this->getCards($boardId, $stack['id']);
+                    $cards = array_map(
+                        fn(array $card) => CardDTO::fromArray($card),
+                        $cardsData
+                    );
                 } catch (\Exception $cardError) {
                     Log::warning('Failed to fetch cards for stack', [
                         'board_id' => $boardId,
@@ -227,11 +225,15 @@ class NextcloudDeckService extends NextcloudBaseService
                     ]);
                 }
 
-                $board['stacks'][] = $stackData;
-                $board['total_cards'] += count($stackData['cards']);
+                $stackDTOs[] = StackDTO::fromArray($stack, false)->withCards($cards);
             }
 
-            return $board;
+            return new BoardDTO(
+                id: $boardId,
+                title: 'Untitled Board',
+                color: null,
+                stacks: $stackDTOs
+            );
 
         } catch (\Exception $e) {
             Log::warning('Fallback method also failed for board', [
@@ -243,97 +245,57 @@ class NextcloudDeckService extends NextcloudBaseService
     }
 
     /**
-     * Process raw board data into normalized structure.
+     * Process raw board data into BoardDTO.
      *
      * @param array $boardData
      * @param int $boardId
-     * @return array
+     * @return BoardDTO
      */
-    private function processBoardData(array $boardData, int $boardId): array
+    private function processBoardData(array $boardData, int $boardId): BoardDTO
     {
-        $board = [
-            'id' => $boardData['id'] ?? $boardId,
-            'title' => $boardData['title'] ?? 'Untitled Board',
-            'color' => $boardData['color'] ?? null,
-            'stacks' => [],
-            'total_cards' => 0
-        ];
-
         $stacks = $boardData['stacks'] ?? [];
+        $stackDTOs = [];
 
         foreach ($stacks as $stack) {
-            $stackData = $this->buildStackData($stack);
             $cards = $stack['cards'] ?? [];
 
-            if (!empty($cards)) {
-                $stackData['cards'] = array_map([$this, 'normalizeCardData'], $cards);
-            } else {
+            if (empty($cards)) {
                 // Cards not included, fetch them separately
                 try {
-                    $fetchedCards = $this->getCards($boardId, $stack['id']);
-                    $stackData['cards'] = array_map([$this, 'normalizeCardData'], $fetchedCards);
-                    $cards = $fetchedCards;
+                    $cards = $this->getCards($boardId, $stack['id']);
                 } catch (\Exception $e) {
                     Log::warning('Failed to fetch cards for stack', [
                         'board_id' => $boardId,
                         'stack_id' => $stack['id'],
                         'error' => $e->getMessage()
                     ]);
+                    $cards = [];
                 }
             }
 
-            $board['stacks'][] = $stackData;
-            $board['total_cards'] += count($stackData['cards']);
+            $cardDTOs = array_map(
+                fn(array $card) => CardDTO::fromArray($card),
+                $cards
+            );
+
+            $stackDTOs[] = StackDTO::fromArray($stack, false)->withCards($cardDTOs);
         }
+
+        $board = new BoardDTO(
+            id: $boardData['id'] ?? $boardId,
+            title: $boardData['title'] ?? 'Untitled Board',
+            color: $boardData['color'] ?? null,
+            stacks: $stackDTOs
+        );
 
         Log::info('Board processing complete', [
             'board_id' => $boardId,
-            'board_title' => $board['title'],
-            'stacks_count' => count($board['stacks']),
-            'total_cards' => $board['total_cards']
+            'board_title' => $board->title,
+            'stacks_count' => count($board->stacks),
+            'total_cards' => $board->totalCards()
         ]);
 
         return $board;
-    }
-
-    /**
-     * Build normalized stack data structure.
-     *
-     * @param array $stack
-     * @return array
-     */
-    private function buildStackData(array $stack): array
-    {
-        return [
-            'id' => $stack['id'],
-            'title' => $stack['title'],
-            'order' => $stack['order'] ?? 0,
-            'cards' => []
-        ];
-    }
-
-    /**
-     * Normalize card data to consistent structure.
-     *
-     * @param array $card
-     * @return array
-     */
-    private function normalizeCardData(array $card): array
-    {
-        return [
-            'id' => $card['id'],
-            'title' => $card['title'],
-            'description' => $card['description'] ?? '',
-            'duedate' => $card['duedate'] ?? null,
-            'labels' => $card['labels'] ?? [],
-            'assignedUsers' => $card['assignedUsers'] ?? [],
-            'createdAt' => $card['createdAt'] ?? null,
-            'lastModified' => $card['lastModified'] ?? null,
-            'archived' => $card['archived'] ?? false,
-            'done' => $card['done'] ?? false,
-            'order' => $card['order'] ?? 0,
-            'type' => $card['type'] ?? 'plain'
-        ];
     }
 
     /**

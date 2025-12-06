@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Traits\ApiResponse;
+use App\Services\Contracts\ParserInterface;
 use App\Services\NextcloudService;
 use App\Services\CsvParserService;
-use App\Services\XmlParserService;
 use App\Services\ExcelParserService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,14 +19,17 @@ class FileParserController extends Controller
     use ApiResponse;
 
     /**
-     * Supported file formats.
+     * Supported file formats mapped to their parser services.
      */
-    private const SUPPORTED_FORMATS = ['csv', 'xml', 'xlsx', 'xls'];
+    private const FORMAT_PARSERS = [
+        'csv' => CsvParserService::class,
+        'xlsx' => ExcelParserService::class,
+        'xls' => ExcelParserService::class,
+    ];
 
     public function __construct(
         private readonly NextcloudService $nextcloudService,
         private readonly CsvParserService $csvParser,
-        private readonly XmlParserService $xmlParser,
         private readonly ExcelParserService $excelParser
     ) {}
 
@@ -66,34 +69,19 @@ class FileParserController extends Controller
                 ], 404);
             }
 
-            // Determine file type and parse accordingly
-            $fileExtension = pathinfo($filePath, PATHINFO_EXTENSION);
-            $parsedData = null;
+            // Determine file type and get appropriate parser
+            $fileExtension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+            $parser = $this->getParserForFormat($fileExtension);
 
-            switch (strtolower($fileExtension)) {
-                case 'csv':
-                    Log::info('Parsing CSV file');
-                    $delimiter = $this->csvParser->detectDelimiter($fileContent);
-                    $parsedData = $this->csvParser->parse($fileContent, $delimiter);
-                    break;
-
-                case 'xml':
-                    Log::info('Parsing XML file');
-                    $parsedData = $this->xmlParser->parse($fileContent);
-                    break;
-
-                case 'xlsx':
-                case 'xls':
-                    Log::info('Parsing Excel file', ['extension' => $fileExtension]);
-                    $parsedData = $this->excelParser->parse($fileContent);
-                    break;
-
-                default:
-                    return $this->validationErrorResponse(
-                        'Unsupported file format',
-                        ['supported_formats' => self::SUPPORTED_FORMATS, 'detected_format' => $fileExtension]
-                    );
+            if ($parser === null) {
+                return $this->validationErrorResponse(
+                    'Unsupported file format',
+                    ['supported_formats' => array_keys(self::FORMAT_PARSERS), 'detected_format' => $fileExtension]
+                );
             }
+
+            Log::info('Parsing file', ['extension' => $fileExtension]);
+            $parsedData = $parser->parse($fileContent);
 
             Log::info('File parsing completed successfully', [
                 'file_type' => $fileExtension,
@@ -136,6 +124,7 @@ class FileParserController extends Controller
         $status = [
             'nextcloud_connection' => false,
             'services_loaded' => true,
+            'supported_formats' => array_keys(self::FORMAT_PARSERS),
             'timestamp' => now()->toISOString()
         ];
 
@@ -153,5 +142,20 @@ class FileParserController extends Controller
             'status' => $overallStatus ? 'healthy' : 'degraded',
             'checks' => $status
         ], $overallStatus ? 200 : 503);
+    }
+
+    /**
+     * Get the appropriate parser for a file format.
+     *
+     * @param string $format File extension (csv, xlsx, xls)
+     * @return ParserInterface|null
+     */
+    private function getParserForFormat(string $format): ?ParserInterface
+    {
+        return match ($format) {
+            'csv' => $this->csvParser,
+            'xlsx', 'xls' => $this->excelParser,
+            default => null,
+        };
     }
 }

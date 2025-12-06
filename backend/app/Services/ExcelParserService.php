@@ -2,24 +2,29 @@
 
 namespace App\Services;
 
+use App\Services\Contracts\ParserInterface;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Shared\File;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use Illuminate\Support\Facades\Log;
 
-class ExcelParserService
+class ExcelParserService implements ParserInterface
 {
     /**
-     * Parse Excel content into structured array
+     * Maximum columns to parse (prevents memory issues).
+     */
+    private const MAX_COLUMNS = 100;
+    /**
+     * Parse Excel content into structured array.
      * 
-     * @param string $excelContent Raw Excel file content
+     * @param string $content Raw Excel file content
      * @return array Parsed data with headers as keys
      * @throws \Exception
      */
-    public function parse(string $excelContent): array
+    public function parse(string $content): array
     {
         try {
             Log::info('Starting Excel parsing', [
-                'content_length' => strlen($excelContent)
+                'content_length' => strlen($content)
             ]);
 
             // Create temporary file since PhpSpreadsheet needs a file path
@@ -29,7 +34,7 @@ class ExcelParserService
             }
 
             // Write content to temporary file
-            if (file_put_contents($tempFile, $excelContent) === false) {
+            if (file_put_contents($tempFile, $content) === false) {
                 throw new \Exception('Failed to write content to temporary file');
             }
 
@@ -41,14 +46,13 @@ class ExcelParserService
                 // Get the highest row and column numbers with actual data
                 $highestRow = $worksheet->getHighestDataRow();
                 $highestColumn = $worksheet->getHighestDataColumn();
-                $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+                $highestColumnIndex = Coordinate::columnIndexFromString($highestColumn);
 
                 // Limit to reasonable number of columns to prevent memory issues
-                $maxColumns = 100; // Reasonable limit for Excel parsing
-                if ($highestColumnIndex > $maxColumns) {
-                    Log::warning('Excel file has too many columns, limiting to first ' . $maxColumns);
-                    $highestColumnIndex = $maxColumns;
-                    $highestColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($maxColumns);
+                if ($highestColumnIndex > self::MAX_COLUMNS) {
+                    Log::warning('Excel file has too many columns, limiting to first ' . self::MAX_COLUMNS);
+                    $highestColumnIndex = self::MAX_COLUMNS;
+                    $highestColumn = Coordinate::stringFromColumnIndex(self::MAX_COLUMNS);
                 }
 
                 Log::info('Excel file dimensions', [
@@ -115,7 +119,7 @@ class ExcelParserService
         } catch (\Exception $e) {
             Log::error('Excel parsing failed', [
                 'error' => $e->getMessage(),
-                'content_preview' => substr($excelContent, 0, 200)
+                'content_preview' => substr($content, 0, 200)
             ]);
 
             throw new \Exception('Failed to parse Excel file: ' . $e->getMessage());

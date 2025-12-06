@@ -2,6 +2,10 @@
 
 namespace App\Services;
 
+use App\DTO\Mensa\MenuDayDTO;
+use App\DTO\Mensa\MenuItemDTO;
+use App\DTO\Mensa\MenuResultDTO;
+use App\DTO\Mensa\PriceDTO;
 use Exception;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -27,28 +31,34 @@ class MensaService
     }
 
 
+    /**
+     * Get menu data with optional images.
+     *
+     * @param bool $includeImages Whether to include food images
+     * @return array Response array with success, data, and metadata
+     * @throws Exception
+     */
     public function getMenuData(bool $includeImages = false): array
     {
         try {
             $xmlData = $this->fetchMenuXml();
-            $parsedData = $this->parseMenuXml($xmlData);
-            $filteredData = $this->filterRelevantDays($parsedData);
+            $menuResult = $this->parseMenuXml($xmlData);
+            $menuResult = $this->filterRelevantDays($menuResult);
             
-            // Add images if requested - wrapped in separate try-catch to prevent image failures from breaking entire response
+            // Add images if requested
             if ($includeImages) {
                 try {
-                    $filteredData = $this->addImagesToMenuData($filteredData);
+                    $menuResult = $this->addImagesToMenuData($menuResult);
                 } catch (Exception $imageException) {
                     Log::warning('Failed to add images to menu data, continuing without images', [
                         'error' => $imageException->getMessage()
                     ]);
-                    // Continue without images rather than failing completely
                 }
             }
             
             return [
                 'success' => true,
-                'data' => $filteredData,
+                'data' => $menuResult->jsonSerialize(),
                 'last_updated' => now()->toISOString(),
                 'images_included' => $includeImages
             ];
@@ -107,7 +117,10 @@ class MensaService
         return $xmlContent;
     }
 
-    private function parseMenuXml(string $xmlData): array
+    /**
+     * Parse XML data into MenuResultDTO.
+     */
+    private function parseMenuXml(string $xmlData): MenuResultDTO
     {
         try {
             $dom = new DOMDocument();
@@ -134,65 +147,58 @@ class MensaService
                     $allergene = $xpath->query('.//allergene', $menueNode)->item(0)?->textContent ?? '';
                     $kennzeichnungen = $xpath->query('.//kennzeichnungen', $menueNode)->item(0)?->textContent ?? '';
 
-                    $preise = [
-                        'studierende' => $xpath->query('.//preis/studierende', $menueNode)->item(0)?->textContent ?? '',
-                        'angestellte' => $xpath->query('.//preis/angestellte', $menueNode)->item(0)?->textContent ?? '',
-                        'gaeste' => $xpath->query('.//preis/gaeste', $menueNode)->item(0)?->textContent ?? '',
-                        'schueler' => $xpath->query('.//preis/schueler', $menueNode)->item(0)?->textContent ?? ''
-                    ];
-
-                    $menues[] = [
-                        'art' => $art,
-                        'name' => $this->fixGermanCharacters($name),
-                        'zusatz' => $zusatz,
-                        'allergene' => $allergene,
-                        'kennzeichnungen' => $kennzeichnungen,
-                        'preise' => $preise
-                    ];
+                    $menues[] = new MenuItemDTO(
+                        art: $art,
+                        name: $this->fixGermanCharacters($name),
+                        zusatz: $zusatz,
+                        allergene: $allergene,
+                        kennzeichnungen: $kennzeichnungen,
+                        preise: new PriceDTO(
+                            studierende: $xpath->query('.//preis/studierende', $menueNode)->item(0)?->textContent ?? '',
+                            angestellte: $xpath->query('.//preis/angestellte', $menueNode)->item(0)?->textContent ?? '',
+                            gaeste: $xpath->query('.//preis/gaeste', $menueNode)->item(0)?->textContent ?? '',
+                            schueler: $xpath->query('.//preis/schueler', $menueNode)->item(0)?->textContent ?? ''
+                        )
+                    );
                 }
 
-                $days[] = [
-                    'datum' => $datum,
-                    'datum_formatted' => $this->formatDate($datum),
-                    'weekday' => $this->getWeekday($datum),
-                    'is_today' => $this->isToday($datum),
-                    'is_tomorrow' => $this->isTomorrow($datum),
-                    'menues' => $menues
-                ];
+                $days[] = new MenuDayDTO(
+                    datum: $datum,
+                    datumFormatted: $this->formatDate($datum),
+                    weekday: $this->getWeekday($datum),
+                    isToday: $this->isToday($datum),
+                    isTomorrow: $this->isTomorrow($datum),
+                    menues: $menues
+                );
             }
 
-            return [
-                'mensa_name' => $mensaName,
-                'days' => $days
-            ];
+            return new MenuResultDTO(
+                mensaName: $mensaName,
+                days: $days
+            );
         } catch (Exception $e) {
             throw new Exception('Error parsing XML: ' . $e->getMessage());
         }
     }
 
     /**
-     * Filter data to only include current day and next day
-     *
-     * @param array $parsedData
-     * @return array
+     * Filter data to only include current day and next day.
      */
-    private function filterRelevantDays(array $parsedData): array
+    private function filterRelevantDays(MenuResultDTO $menuResult): MenuResultDTO
     {
-        $relevantDays = array_filter($parsedData['days'], function ($day) {
-            return $day['is_today'] || $day['is_tomorrow'];
-        });
+        $relevantDays = array_filter(
+            $menuResult->days,
+            fn(MenuDayDTO $day) => $day->isToday || $day->isTomorrow
+        );
 
         // Sort so today comes first, then tomorrow
-        usort($relevantDays, function ($a, $b) {
-            if ($a['is_today']) return -1;
-            if ($b['is_today']) return 1;
+        usort($relevantDays, function (MenuDayDTO $a, MenuDayDTO $b) {
+            if ($a->isToday) return -1;
+            if ($b->isToday) return 1;
             return 0;
         });
 
-        return [
-            'mensa_name' => $parsedData['mensa_name'],
-            'days' => array_values($relevantDays)
-        ];
+        return $menuResult->withDays(array_values($relevantDays));
     }
 
     /**
@@ -296,44 +302,36 @@ class MensaService
     }
 
     /**
-     * Add food images to menu data using GoogleImagesService
-     *
-     * @param array $menuData
-     * @return array
+     * Add food images to menu data using GoogleImagesService.
      */
-    private function addImagesToMenuData(array $menuData): array
+    private function addImagesToMenuData(MenuResultDTO $menuResult): MenuResultDTO
     {
         try {
-            // Collect all unique food names
-            $foodNames = [];
-            foreach ($menuData['days'] as $day) {
-                foreach ($day['menues'] as $menu) {
-                    $foodName = trim($menu['name']);
-                    if (!empty($foodName) && !in_array($foodName, $foodNames)) {
-                        $foodNames[] = $foodName;
-                    }
-                }
-            }
+            // Collect all unique food names using the DTO method
+            $foodNames = $menuResult->getAllFoodNames();
 
             // Search for images for all unique food names
             $foodImages = $this->googleImagesService->searchMultipleFoodImages($foodNames);
 
-            // Add images to menu items
-            foreach ($menuData['days'] as &$day) {
-                foreach ($day['menues'] as &$menu) {
-                    $foodName = trim($menu['name']);
-                    $menu['image'] = $foodImages[$foodName] ?? null;
-                }
-            }
+            // Create new days with images added to menu items
+            $updatedDays = array_map(function (MenuDayDTO $day) use ($foodImages) {
+                $updatedMenues = array_map(function (MenuItemDTO $menu) use ($foodImages) {
+                    $foodName = trim($menu->name);
+                    $image = $foodImages[$foodName] ?? null;
+                    return $menu->withImage($image);
+                }, $day->menues);
+                
+                return $day->withMenues($updatedMenues);
+            }, $menuResult->days);
 
-            return $menuData;
+            return $menuResult->withDays($updatedDays);
         } catch (Exception $e) {
             Log::warning('Failed to add images to menu data', [
                 'error' => $e->getMessage()
             ]);
             
             // Return original data without images if image service fails
-            return $menuData;
+            return $menuResult;
         }
     }
 }

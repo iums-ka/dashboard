@@ -2,20 +2,40 @@
 
 namespace App\Services;
 
+use App\Services\Contracts\ParserInterface;
 use League\Csv\Reader;
 use Illuminate\Support\Facades\Log;
 
-class CsvParserService
+class CsvParserService implements ParserInterface
 {
     /**
-     * Parse CSV content into structured array
+     * Default CSV delimiter.
+     */
+    private const DEFAULT_DELIMITER = ',';
+    /**
+     * Parse CSV content into structured array.
      * 
-     * @param string $csvContent Raw CSV file content
-     * @param string $delimiter CSV delimiter (default: ',')
+     * Uses auto-detected delimiter for best results.
+     * 
+     * @param string $content Raw CSV file content
      * @return array Parsed data with headers as keys
      * @throws \Exception
      */
-    public function parse(string $csvContent, string $delimiter = ','): array
+    public function parse(string $content): array
+    {
+        $delimiter = $this->detectDelimiter($content);
+        return $this->parseWithDelimiter($content, $delimiter);
+    }
+
+    /**
+     * Parse CSV content with a specific delimiter.
+     * 
+     * @param string $csvContent Raw CSV file content
+     * @param string $delimiter CSV delimiter
+     * @return array Parsed data with headers as keys
+     * @throws \Exception
+     */
+    public function parseWithDelimiter(string $csvContent, string $delimiter = self::DEFAULT_DELIMITER): array
     {
         try {
             Log::info('Starting CSV parsing', [
