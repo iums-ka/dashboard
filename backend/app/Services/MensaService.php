@@ -12,18 +12,17 @@ use DOMXPath;
 
 class MensaService
 {
-    private $mensaUrl;
-    private $apiKey;
-    private $locId;
-  
+    private ?string $mensaUrl;
+    private ?string $apiKey;
+    private ?string $locId;
 
     private GoogleImagesService $googleImagesService;
 
     public function __construct(GoogleImagesService $googleImagesService)
     {
-        $this->mensaUrl = env('MENSA_API_URL');
-        $this->apiKey = env('API_KEY');
-        $this->locId = env('ORT_ID');
+        $this->mensaUrl = config('services.mensa.api_url');
+        $this->apiKey = config('services.mensa.api_key');
+        $this->locId = config('services.mensa.location_id');
         $this->googleImagesService = $googleImagesService;
     }
 

@@ -74,9 +74,9 @@ class XmlParserService
      * Convert SimpleXMLElement to array recursively
      * 
      * @param SimpleXMLElement $xml
-     * @return array
+     * @return array|string
      */
-    private function xmlToArray(SimpleXMLElement $xml): array
+    private function xmlToArray(SimpleXMLElement $xml): array|string
     {
         $array = [];
 

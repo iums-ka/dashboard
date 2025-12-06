@@ -40,9 +40,16 @@ return [
         'url' => env('NEXTCLOUD_URL'),
         'username' => env('NEXTCLOUD_USERNAME'),
         'password' => env('NEXTCLOUD_PASSWORD'),
+        'file_path' => env('NEXTCLOUD_FILE_PATH', '/Documents/proposals.csv'),
         'deck' => [
             'default_boards' => env('NEXTCLOUD_DECK_DEFAULT_BOARDS'), // Comma-separated board IDs
         ],
+    ],
+
+    'mensa' => [
+        'api_url' => env('MENSA_API_URL'),
+        'api_key' => env('API_KEY'),
+        'location_id' => env('ORT_ID'),
     ],
 
 ];
