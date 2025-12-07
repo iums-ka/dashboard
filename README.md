@@ -216,19 +216,40 @@ dashboard/
 │   ├── config/                 # Laravel configuration
 │   └── database/               # Migrations and seeders
 │
-├── frontend/                  # React frontend
+├── frontend/                   # React frontend
 │   ├── src/
-│   │   ├── components/        # React components
-│   │   │   ├── Mensa.js       # Mensa menu component
-│   │   │   ├── Antraege.js    # Proposals component
-│   │   │   ├── GridLayout.js  # Grid layout system
-│   │   │   ├── ModuleSlot.js  # Individual module container
-│   │   │   └── Tasks.js       # Nextcloud Deck-Task Module
-│   │   ├── App.js             # Main application component
-│   │   └── index.js           # Application entry point
-│   └── public/                # Static assets and logos
+│   │   ├── components/         # React components
+│   │   │   ├── index.js        # Barrel exports for all components
+│   │   │   ├── GridLayout.js   # 16x9 grid layout system
+│   │   │   ├── ModuleSlot.js   # Individual module container
+│   │   │   ├── Mensa.js        # Mensa menu display
+│   │   │   ├── Antraege.js     # Proposals table
+│   │   │   ├── Tasks.js        # Nextcloud Deck task board
+│   │   │   ├── TasksHeader.js  # Tasks header with controls
+│   │   │   ├── TasksList.js    # Scrollable task list
+│   │   │   ├── TaskItem.js     # Individual task item
+│   │   │   └── BoardSelector.js # Board selection dialog
+│   │   ├── hooks/              # Custom React hooks
+│   │   │   ├── index.js        # Barrel exports
+│   │   │   ├── useFetch.js     # Data fetching with loading/error
+│   │   │   ├── useAutoRefresh.js # Interval-based auto-refresh
+│   │   │   └── useBoardRotation.js # Board cycling logic
+│   │   ├── services/           # API service layer
+│   │   │   └── api.js          # Centralized API calls
+│   │   ├── config/             # Configuration constants
+│   │   │   ├── index.js        # Barrel exports
+│   │   │   └── constants.js    # App-wide constants
+│   │   ├── theme/              # MUI theme configuration
+│   │   │   └── index.js        # Theme and color exports
+│   │   ├── utils/              # Utility functions
+│   │   │   ├── taskUtils.js    # Task priority/sorting
+│   │   │   ├── avatarUtils.js  # User avatar resolution
+│   │   │   └── boardStorage.js # localStorage helpers
+│   │   ├── App.js              # Main application component
+│   │   └── index.js            # Application entry point
+│   └── public/                 # Static assets and logos
 │
-└── README.md                  # This file
+└── README.md                   # This file
 ```
 
 
