@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -19,69 +19,31 @@ import RestaurantIcon from '@mui/icons-material/Restaurant';
 import LocalDiningIcon from '@mui/icons-material/LocalDining';
 import NatureIcon from '@mui/icons-material/Nature';
 import EuroIcon from '@mui/icons-material/Euro';
-
-const API_BASE_URL = 'http://localhost:8000/api';
-const REFRESH_INTERVAL = 10800000; // 3 hours
+import { mensa as mensaApi, REFRESH_INTERVALS } from '../services/api';
+import { useFetch, useAutoRefresh } from '../hooks';
 
 export default function Mensa() {
   const theme = useTheme();
-  const [menuData, setMenuData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [lastUpdated, setLastUpdated] = useState(null);
+  
+  // Fetch menu data using custom hook
+  const fetchMenuData = useCallback(
+    () => mensaApi.getMenu(true),
+    []
+  );
+  
+  const {
+    data: menuData,
+    loading,
+    error,
+    lastUpdated,
+    refresh,
+    silentRefresh,
+  } = useFetch(fetchMenuData, {
+    transformResponse: (result) => result.data,
+  });
 
-  // Fetch menu data from Laravel backend
-  const fetchMenuData = useCallback(async (showLoadingSpinner = true) => {
-    try {
-      if (showLoadingSpinner) {
-        setLoading(true);
-      }
-      setError(null);
-
-      const response = await fetch(`${API_BASE_URL}/mensa/with-images`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Fehler beim Laden des Speiseplans');
-      }
-      
-      setMenuData(result.data);
-      setLastUpdated(new Date());
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching menu data:', err);
-      setError(err.message || 'Fehler beim Laden des Speiseplans');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Manual refresh handler
-  const handleRefresh = useCallback(() => {
-    fetchMenuData();
-  }, [fetchMenuData]);
-
-  // Initial load and interval setup
-  useEffect(() => {
-    fetchMenuData();
-
-    // Set up automatic refresh
-    const intervalId = setInterval(() => {
-      fetchMenuData(false); // Don't show loading spinner for auto-refresh
-    }, REFRESH_INTERVAL);
-
-    return () => clearInterval(intervalId);
-  }, [fetchMenuData]);
+  // Set up auto-refresh
+  useAutoRefresh(silentRefresh, REFRESH_INTERVALS.MENSA, { immediate: false });
 
   // Get chip color and icon based on menu type
   const getMenuTypeInfo = (zusatz) => {
@@ -186,7 +148,7 @@ export default function Mensa() {
             </Typography>
           )}
           <IconButton 
-            onClick={handleRefresh} 
+            onClick={refresh} 
             disabled={loading}
             size="small"
             sx={{ 

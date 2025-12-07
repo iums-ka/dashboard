@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   Box,
   Table,
@@ -20,77 +20,38 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import PendingIcon from '@mui/icons-material/Pending';
 import { SvgIcon } from '@mui/material';
-
-const API_BASE_URL = 'http://localhost:8000/api';
-const REFRESH_INTERVAL = 1200000; // 20 minutes
+import { proposals as proposalsApi, REFRESH_INTERVALS } from '../services/api';
+import { useFetch, useAutoRefresh } from '../hooks';
 
 export default function Antraege() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [refreshTimer, setRefreshTimer] = useState(null);
-
-  // Fetch proposals data from backend
-  const fetchProposals = useCallback(async (showLoadingSpinner = true) => {
-    try {
-      if (showLoadingSpinner) {
-        setLoading(true);
-      }
-      setError(null);
-
-      const response = await fetch(`${API_BASE_URL}/proposals`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      
+  // Fetch proposals using custom hook
+  const fetchProposals = useCallback(
+    () => proposalsApi.getAll(),
+    []
+  );
+  
+  const {
+    data: proposalsData,
+    loading,
+    error,
+    lastUpdated,
+    refresh,
+    silentRefresh,
+  } = useFetch(fetchProposals, {
+    transformResponse: (result) => {
       if (result.success && result.parsing_result?.data) {
-        setData(result.parsing_result.data);
-        setLastUpdated(new Date());
         console.log('Proposals data updated:', result.parsing_result.data.length, 'records');
-      } else {
-        throw new Error(result.message || 'Invalid response format');
+        return result.parsing_result.data;
       }
-    } catch (err) {
-      console.error('Failed to fetch proposals:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      throw new Error(result.message || 'Invalid response format');
+    },
+  });
+  
+  // Ensure data is always an array
+  const data = proposalsData || [];
 
-  // Set up auto-refresh timer
-  useEffect(() => {
-    // Initial fetch
-    fetchProposals();
-
-    // Set up interval for auto-refresh
-    const interval = setInterval(() => {
-      fetchProposals(false); // Don't show loading spinner for auto-refresh
-    }, REFRESH_INTERVAL);
-
-    setRefreshTimer(interval);
-
-    // Cleanup interval on unmount
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [fetchProposals]);
-
-  // Manual refresh handler
-  const handleManualRefresh = () => {
-    fetchProposals(true);
-  };
+  // Set up auto-refresh
+  useAutoRefresh(silentRefresh, REFRESH_INTERVALS.PROPOSALS, { immediate: false });
 
   // Get status icon based on proposal status
   const getStatusIcon = (status) => {
@@ -211,7 +172,7 @@ export default function Antraege() {
             Anträge
           </Typography>
           <IconButton 
-            onClick={handleManualRefresh} 
+            onClick={refresh} 
             disabled={loading}
             size="small"
             sx={{ 
@@ -272,7 +233,7 @@ export default function Antraege() {
             </Typography>
           )}
           <IconButton 
-            onClick={handleManualRefresh} 
+            onClick={refresh} 
             disabled={loading} 
             size="small"
             sx={{ 

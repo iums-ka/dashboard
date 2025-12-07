@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -18,6 +18,8 @@ import {
 } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import { tasks as tasksApi } from '../services/api';
+import { STORAGE_KEYS, REFRESH_INTERVALS } from '../config';
 
 /**
  * TODO: REFACTOR - State Management Architecture
@@ -42,23 +44,19 @@ import RefreshIcon from '@mui/icons-material/Refresh';
  * Estimated refactor effort: 4-6 hours
  */
 
-const API_BASE_URL = 'http://localhost:8000/api';
-const BOARDS_CACHE_KEY = 'nextcloud_boards_cache';
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
 /**
  * Load cached boards from localStorage
  */
 const loadCachedBoards = () => {
   try {
-    const cached = localStorage.getItem(BOARDS_CACHE_KEY);
+    const cached = localStorage.getItem(STORAGE_KEYS.BOARDS_CACHE);
     if (!cached) return null;
     
     const { boards, timestamp } = JSON.parse(cached);
     const age = Date.now() - timestamp;
     
-    // Return cached data if less than CACHE_DURATION old
-    if (age < CACHE_DURATION && Array.isArray(boards)) {
+    // Return cached data if less than cache duration old
+    if (age < REFRESH_INTERVALS.BOARDS_CACHE && Array.isArray(boards)) {
       console.log(`Using cached boards (${Math.round(age / 1000)}s old)`);
       return boards;
     }
@@ -76,7 +74,7 @@ const loadCachedBoards = () => {
  */
 const saveBoardsCache = (boards) => {
   try {
-    localStorage.setItem(BOARDS_CACHE_KEY, JSON.stringify({
+    localStorage.setItem(STORAGE_KEYS.BOARDS_CACHE, JSON.stringify({
       boards,
       timestamp: Date.now()
     }));
@@ -103,43 +101,12 @@ export default function BoardSelector({ open, onClose, onSave, currentSelection 
   const [error, setError] = useState(null);
   const [selectedBoards, setSelectedBoards] = useState(currentSelection);
 
-  // Fetch available boards when dialog opens
-  useEffect(() => {
-    if (open) {
-      // Try to load from cache first
-      const cached = loadCachedBoards();
-      if (cached) {
-        setBoards(cached);
-        setSelectedBoards(currentSelection.length > 0 ? currentSelection : cached.map(b => b.id));
-      } else {
-        // Cache miss or expired, fetch from API
-        fetchBoards();
-      }
-      
-      // Always set current selection
-      if (currentSelection.length > 0) {
-        setSelectedBoards(currentSelection);
-      }
-    }
-  }, [open, currentSelection]);
-
-  const fetchBoards = async () => {
+  const fetchBoards = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/tasks/boards`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
+      const result = await tasksApi.getBoards();
 
       if (!result.success) {
         throw new Error(result.error || 'Fehler beim Laden der Boards');
@@ -162,7 +129,27 @@ export default function BoardSelector({ open, onClose, onSave, currentSelection 
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentSelection]);
+
+  // Fetch available boards when dialog opens
+  useEffect(() => {
+    if (open) {
+      // Try to load from cache first
+      const cached = loadCachedBoards();
+      if (cached && cached.length > 0) {
+        setBoards(cached);
+        setSelectedBoards(currentSelection.length > 0 ? currentSelection : cached.map(b => b.id));
+      } else {
+        // Cache miss or expired, fetch from API
+        fetchBoards();
+      }
+      
+      // Always set current selection
+      if (currentSelection.length > 0) {
+        setSelectedBoards(currentSelection);
+      }
+    }
+  }, [open, currentSelection, fetchBoards]);
 
   const handleToggleBoard = (boardId) => {
     setSelectedBoards(prev => {
@@ -194,7 +181,7 @@ export default function BoardSelector({ open, onClose, onSave, currentSelection 
 
   const handleRefreshBoards = () => {
     // Clear cache and force fresh fetch
-    localStorage.removeItem(BOARDS_CACHE_KEY);
+    localStorage.removeItem(STORAGE_KEYS.BOARDS_CACHE);
     fetchBoards();
   };
 

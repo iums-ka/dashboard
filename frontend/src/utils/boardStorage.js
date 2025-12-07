@@ -24,8 +24,7 @@
  * This is acceptable for MVP but should be revisited before production scaling.
  */
 
-const STORAGE_PREFIX = 'tasks_boards';
-const BOARDS_CACHE_KEY = 'nextcloud_boards_cache';
+import { STORAGE_KEYS } from '../config';
 
 /**
  * Get the localStorage key for a specific instance
@@ -33,7 +32,7 @@ const BOARDS_CACHE_KEY = 'nextcloud_boards_cache';
  * @returns {string} - localStorage key
  */
 const getStorageKey = (instanceId) => {
-  return `${STORAGE_PREFIX}_${instanceId}`;
+  return `${STORAGE_KEYS.SELECTED_BOARDS_PREFIX}${instanceId}`;
 };
 
 /**
@@ -123,8 +122,8 @@ export const getAllStoredSelections = () => {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       
-      if (key && key.startsWith(STORAGE_PREFIX)) {
-        const instanceId = key.replace(`${STORAGE_PREFIX}_`, '');
+      if (key && key.startsWith(STORAGE_KEYS.SELECTED_BOARDS_PREFIX)) {
+        const instanceId = key.replace(STORAGE_KEYS.SELECTED_BOARDS_PREFIX, '');
         const value = localStorage.getItem(key);
         
         try {
@@ -154,7 +153,7 @@ export const clearAllStoredSelections = () => {
     // Collect all keys first (can't modify during iteration)
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && key.startsWith(STORAGE_PREFIX)) {
+      if (key && key.startsWith(STORAGE_KEYS.SELECTED_BOARDS_PREFIX)) {
         keys.push(key);
       }
     }
@@ -180,7 +179,7 @@ export const clearAllStoredSelections = () => {
  */
 export const clearBoardsCache = () => {
   try {
-    localStorage.removeItem(BOARDS_CACHE_KEY);
+    localStorage.removeItem(STORAGE_KEYS.BOARDS_CACHE);
     console.log('Cleared boards cache');
     return true;
   } catch (error) {
