@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 // Font imports (only required weights to reduce bundle). Adjust as needed.
 import '@fontsource/poppins/300.css';
 import '@fontsource/poppins/400.css';
@@ -16,7 +16,66 @@ import { GridLayout, Antraege, Mensa, Tasks } from './components';
 
 const WELCOME_TEXT_SIZE = '1.1rem';
 
+// DateTime component for displaying local time and date
+const DateTime = () => {
+  const [dateTime, setDateTime] = useState(new Date());
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDateTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = (date) => {
+    return date.toLocaleTimeString('de-DE', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const formatDate = (date) => {
+    return date.toLocaleDateString('de-DE', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  return (
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center',
+      gap: 0.25,
+      py: 1,
+      mt: 2
+    }}>
+      <Typography 
+        variant="h4" 
+        sx={{ 
+          fontWeight: 600,
+          color: 'primary.main',
+          letterSpacing: '0.05em',
+          fontVariantNumeric: 'tabular-nums'
+        }}
+      >
+        {formatTime(dateTime)}
+      </Typography>
+      <Typography 
+        variant="body1" 
+        color="text.secondary"
+        sx={{ 
+          fontWeight: 400,
+          textTransform: 'capitalize'
+        }}
+      >
+        {formatDate(dateTime)}
+      </Typography>
+    </Box>
+  );
+};
 
 // Each module defines its position (x,y) and size (w,h) in grid cells.
 // Grid is 16x9 (16:9 aspect ratio for foyer displays)
@@ -31,7 +90,7 @@ const layoutConfig = [
         gap: 2,
         height: '100%',
         justifyContent: 'flex-start',
-        paddingTop: 4
+        paddingTop: 2
       }}>
         {/* Top section: IIIUS Logo and Text */}
         <Box sx={{ 
@@ -141,6 +200,9 @@ const layoutConfig = [
             <strong>IIIUS - </strong> <strong>I</strong>nstitut für  <strong>I</strong>ntelligente und  <strong>I</strong>nteraktive  <strong>U</strong>biquitäre  <strong>S</strong>ysteme<br/>
           </Typography>
         </Box>
+
+        {/* Middle section: Date and Time */}
+        <DateTime />
 
         {/* Bottom section: Partner Logos */}
         <Box sx={{ 
